@@ -1,0 +1,202 @@
+[
+  {
+    "name": "Back Squat",
+    "primaryMuscleGroup": "quads",
+    "secondaryMuscleGroups": ["glutes", "hamstrings", "core"],
+    "equipment": "barbell",
+    "liftCategory": "lower_compound",
+    "defaultIncrementKg": 5,
+    "isMainLift": true,
+    "notes": "Full-body template anchor lift."
+  },
+  {
+    "name": "Bench Press",
+    "primaryMuscleGroup": "chest",
+    "secondaryMuscleGroups": ["triceps", "shoulders"],
+    "equipment": "barbell",
+    "liftCategory": "barbell_upper",
+    "defaultIncrementKg": 2.5,
+    "isMainLift": true,
+    "notes": "Use conservative jumps when RPE is high."
+  },
+  {
+    "name": "Seated Cable Row",
+    "primaryMuscleGroup": "back",
+    "secondaryMuscleGroups": ["biceps"],
+    "equipment": "cable",
+    "liftCategory": "machine",
+    "defaultIncrementKg": 2.5,
+    "isMainLift": false,
+    "notes": null
+  },
+  {
+    "name": "Romanian Deadlift",
+    "primaryMuscleGroup": "hamstrings",
+    "secondaryMuscleGroups": ["glutes", "back"],
+    "equipment": "barbell",
+    "liftCategory": "lower_compound",
+    "defaultIncrementKg": 5,
+    "isMainLift": true,
+    "notes": "Keep reps smooth; do not chase load if back feels off."
+  },
+  {
+    "name": "Dumbbell Shoulder Press",
+    "primaryMuscleGroup": "shoulders",
+    "secondaryMuscleGroups": ["triceps"],
+    "equipment": "dumbbell",
+    "liftCategory": "dumbbell_upper",
+    "defaultIncrementKg": 2,
+    "isMainLift": false,
+    "notes": "Increment is per dumbbell."
+  },
+  {
+    "name": "Lat Pulldown",
+    "primaryMuscleGroup": "back",
+    "secondaryMuscleGroups": ["biceps"],
+    "equipment": "cable",
+    "liftCategory": "machine",
+    "defaultIncrementKg": 2.5,
+    "isMainLift": false,
+    "notes": null
+  },
+  {
+    "name": "Deadlift",
+    "primaryMuscleGroup": "back",
+    "secondaryMuscleGroups": ["hamstrings", "glutes", "quads"],
+    "equipment": "barbell",
+    "liftCategory": "lower_compound",
+    "defaultIncrementKg": 5,
+    "isMainLift": true,
+    "notes": "Keep progression conservative."
+  },
+  {
+    "name": "Incline Dumbbell Press",
+    "primaryMuscleGroup": "chest",
+    "secondaryMuscleGroups": ["shoulders", "triceps"],
+    "equipment": "dumbbell",
+    "liftCategory": "dumbbell_upper",
+    "defaultIncrementKg": 2,
+    "isMainLift": false,
+    "notes": "Increment is per dumbbell."
+  },
+  {
+    "name": "Leg Press",
+    "primaryMuscleGroup": "quads",
+    "secondaryMuscleGroups": ["glutes", "hamstrings"],
+    "equipment": "machine",
+    "liftCategory": "machine",
+    "defaultIncrementKg": 5,
+    "isMainLift": false,
+    "notes": null
+  },
+  {
+    "name": "Assisted Pull-Up",
+    "primaryMuscleGroup": "back",
+    "secondaryMuscleGroups": ["biceps"],
+    "equipment": "machine",
+    "liftCategory": "bodyweight",
+    "defaultIncrementKg": 2.5,
+    "isMainLift": false,
+    "notes": "For assistance, lower assistance is harder."
+  },
+  {
+    "name": "Leg Curl",
+    "primaryMuscleGroup": "hamstrings",
+    "secondaryMuscleGroups": [],
+    "equipment": "machine",
+    "liftCategory": "machine",
+    "defaultIncrementKg": 2.5,
+    "isMainLift": false,
+    "notes": null
+  },
+  {
+    "name": "Lateral Raise",
+    "primaryMuscleGroup": "shoulders",
+    "secondaryMuscleGroups": [],
+    "equipment": "dumbbell",
+    "liftCategory": "dumbbell_upper",
+    "defaultIncrementKg": 1,
+    "isMainLift": false,
+    "notes": "Use rep progression before aggressive load jumps."
+  },
+  {
+    "name": "Goblet Squat",
+    "primaryMuscleGroup": "quads",
+    "secondaryMuscleGroups": ["glutes", "core"],
+    "equipment": "dumbbell",
+    "liftCategory": "lower_compound",
+    "defaultIncrementKg": 2.5,
+    "isMainLift": false,
+    "notes": null
+  },
+  {
+    "name": "Overhead Press",
+    "primaryMuscleGroup": "shoulders",
+    "secondaryMuscleGroups": ["triceps", "core"],
+    "equipment": "barbell",
+    "liftCategory": "barbell_upper",
+    "defaultIncrementKg": 2.5,
+    "isMainLift": true,
+    "notes": null
+  },
+  {
+    "name": "Barbell Row",
+    "primaryMuscleGroup": "back",
+    "secondaryMuscleGroups": ["biceps", "hamstrings"],
+    "equipment": "barbell",
+    "liftCategory": "barbell_upper",
+    "defaultIncrementKg": 2.5,
+    "isMainLift": true,
+    "notes": null
+  },
+  {
+    "name": "Hip Thrust",
+    "primaryMuscleGroup": "glutes",
+    "secondaryMuscleGroups": ["hamstrings"],
+    "equipment": "barbell",
+    "liftCategory": "lower_compound",
+    "defaultIncrementKg": 5,
+    "isMainLift": false,
+    "notes": null
+  },
+  {
+    "name": "Dumbbell Bench Press",
+    "primaryMuscleGroup": "chest",
+    "secondaryMuscleGroups": ["triceps", "shoulders"],
+    "equipment": "dumbbell",
+    "liftCategory": "dumbbell_upper",
+    "defaultIncrementKg": 2,
+    "isMainLift": false,
+    "notes": "Increment is per dumbbell."
+  },
+  {
+    "name": "Face Pull",
+    "primaryMuscleGroup": "shoulders",
+    "secondaryMuscleGroups": ["back"],
+    "equipment": "cable",
+    "liftCategory": "accessory",
+    "defaultIncrementKg": 2.5,
+    "isMainLift": false,
+    "notes": "Keep reps controlled."
+  },
+  {
+    "name": "Dumbbell Curl",
+    "primaryMuscleGroup": "biceps",
+    "secondaryMuscleGroups": [],
+    "equipment": "dumbbell",
+    "liftCategory": "accessory",
+    "defaultIncrementKg": 1,
+    "isMainLift": false,
+    "notes": null
+  },
+  {
+    "name": "Cable Triceps Pushdown",
+    "primaryMuscleGroup": "triceps",
+    "secondaryMuscleGroups": [],
+    "equipment": "cable",
+    "liftCategory": "accessory",
+    "defaultIncrementKg": 2.5,
+    "isMainLift": false,
+    "notes": null
+  }
+]

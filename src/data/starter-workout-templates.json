@@ -1,0 +1,41 @@
+[
+  {
+    "name": "Workout A",
+    "description": "Full body A with squat and bench emphasis.",
+    "sortOrder": 1,
+    "exercises": [
+      { "name": "Back Squat", "targetSets": 3, "targetRepsMin": 5, "targetRepsMax": 8, "targetWeightKg": null, "restSeconds": 180, "notes": null },
+      { "name": "Bench Press", "targetSets": 3, "targetRepsMin": 6, "targetRepsMax": 8, "targetWeightKg": null, "restSeconds": 150, "notes": null },
+      { "name": "Seated Cable Row", "targetSets": 3, "targetRepsMin": 8, "targetRepsMax": 12, "targetWeightKg": null, "restSeconds": 120, "notes": null },
+      { "name": "Romanian Deadlift", "targetSets": 2, "targetRepsMin": 8, "targetRepsMax": 10, "targetWeightKg": null, "restSeconds": 150, "notes": null },
+      { "name": "Dumbbell Shoulder Press", "targetSets": 2, "targetRepsMin": 8, "targetRepsMax": 12, "targetWeightKg": null, "restSeconds": 120, "notes": null },
+      { "name": "Lat Pulldown", "targetSets": 2, "targetRepsMin": 10, "targetRepsMax": 12, "targetWeightKg": null, "restSeconds": 90, "notes": null }
+    ]
+  },
+  {
+    "name": "Workout B",
+    "description": "Full body B with hinge and incline press emphasis.",
+    "sortOrder": 2,
+    "exercises": [
+      { "name": "Deadlift", "targetSets": 3, "targetRepsMin": 3, "targetRepsMax": 5, "targetWeightKg": null, "restSeconds": 210, "notes": null },
+      { "name": "Incline Dumbbell Press", "targetSets": 3, "targetRepsMin": 8, "targetRepsMax": 10, "targetWeightKg": null, "restSeconds": 120, "notes": null },
+      { "name": "Leg Press", "targetSets": 3, "targetRepsMin": 10, "targetRepsMax": 12, "targetWeightKg": null, "restSeconds": 150, "notes": null },
+      { "name": "Assisted Pull-Up", "targetSets": 3, "targetRepsMin": 6, "targetRepsMax": 10, "targetWeightKg": null, "restSeconds": 150, "notes": "Use assistance value as weight if needed." },
+      { "name": "Leg Curl", "targetSets": 2, "targetRepsMin": 10, "targetRepsMax": 15, "targetWeightKg": null, "restSeconds": 90, "notes": null },
+      { "name": "Lateral Raise", "targetSets": 2, "targetRepsMin": 12, "targetRepsMax": 20, "targetWeightKg": null, "restSeconds": 60, "notes": null }
+    ]
+  },
+  {
+    "name": "Workout C",
+    "description": "Full body C with press, row, glute, and accessory balance.",
+    "sortOrder": 3,
+    "exercises": [
+      { "name": "Goblet Squat", "targetSets": 3, "targetRepsMin": 8, "targetRepsMax": 12, "targetWeightKg": null, "restSeconds": 120, "notes": "Swap for front squat later if preferred." },
+      { "name": "Overhead Press", "targetSets": 3, "targetRepsMin": 5, "targetRepsMax": 8, "targetWeightKg": null, "restSeconds": 150, "notes": null },
+      { "name": "Barbell Row", "targetSets": 3, "targetRepsMin": 6, "targetRepsMax": 10, "targetWeightKg": null, "restSeconds": 150, "notes": null },
+      { "name": "Hip Thrust", "targetSets": 3, "targetRepsMin": 8, "targetRepsMax": 12, "targetWeightKg": null, "restSeconds": 150, "notes": null },
+      { "name": "Dumbbell Bench Press", "targetSets": 2, "targetRepsMin": 8, "targetRepsMax": 12, "targetWeightKg": null, "restSeconds": 120, "notes": null },
+      { "name": "Face Pull", "targetSets": 2, "targetRepsMin": 12, "targetRepsMax": 20, "targetWeightKg": null, "restSeconds": 60, "notes": null }
+    ]
+  }
+]

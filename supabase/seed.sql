@@ -1,0 +1,2 @@
+-- NextSet seed data is imported from the app through /api/templates/import and
+-- /api/exercises/import so each row can be tied to the authenticated user_id.
