@@ -103,7 +103,9 @@ current baseline, and verify behavior in code before expanding it.
   `.dark .<utility>` override table at the bottom of the file (light utility
   classes are remapped to dark surfaces), so components are styled with
   light-mode classes and dark variants follow automatically. Extend the table
-  when introducing new surface/color utility classes. Shared visual language:
+  when introducing new surface/color utility classes. Do not add `dark:` color
+  utilities in components; use the global remap table. Non-color exceptions
+  such as chart-specific behavior may use `dark:` where needed. Shared visual language:
   `rounded-2xl` cards, `rounded-xl` controls, emerald-600 accent, bold
   tabular-nums numeric readouts, minimum 44px touch targets.
 - `src/lib/auth/` and `src/lib/supabase/`: access enforcement and Supabase
@@ -160,6 +162,12 @@ npm run typecheck
 npm run test
 npm run build
 ```
+
+## Improvement backlog
+
+Open work for other agents lives in `IMPROVEMENTS.md`. Pick one ID, follow
+that brief, then run lint / typecheck / test. Do not redo `done` P0 items
+(G1–G5). Do not implement `skip` or `later` IDs unless the user asks.
 
 ## Working Rules
 

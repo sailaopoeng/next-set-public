@@ -48,7 +48,7 @@ export function ThemeToggle() {
   return (
     <button
       aria-label={`Theme mode: ${mode}`}
-      className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+      className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-50"
       onClick={cycleMode}
       title={`Theme: ${mode}`}
       type="button"

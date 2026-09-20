@@ -9,9 +9,8 @@ import {
 } from "@/lib/validation/schemas";
 import { listCompletedSessionDetails, listExercises, listTemplates } from "@/server/db/queries";
 import { recommendProgression } from "@/server/progression/rules";
+import { GEMINI_BASE_URL, getGeminiCoachModel } from "@/server/ai/models";
 
-const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
-const DEFAULT_COACH_MODEL = "gemini-3.5-flash";
 const MAX_CATALOG_EXERCISES = 200;
 
 export type CoachExerciseMatch = {
@@ -193,13 +192,17 @@ export function applyConservativeCoachSafety(
   history: SessionWithDetails[],
   instruction: string,
 ): { exercise: CoachWorkoutPayload["exercises"][number]; notes: string[] } {
-  const previous = findPreviousExercise(history, exercise.id);
+  const previousSession = history.find((session) =>
+    session.session_exercises.some((item) => item.exercise_id === exercise.id),
+  );
+  const previous = previousSession?.session_exercises.find((item) => item.exercise_id === exercise.id);
   if (!previous) return { exercise: entry, notes: [] };
 
   const notes: string[] = [];
   const safeTarget = recommendProgression({
     sessionExercise: previous,
     sets: previous.session_sets,
+    sessionNotes: previousSession?.notes,
   }).suggestedTarget;
   const blockedByInstruction = instructionBlocksExercise(instruction, exercise);
   const previousWeight =
@@ -246,7 +249,7 @@ async function getAiCoachWorkout(
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return fallback;
 
-  const model = process.env.GEMINI_COACH_MODEL ?? DEFAULT_COACH_MODEL;
+  const model = getGeminiCoachModel();
   const prompt = buildCoachPrompt(instruction, retryToken, history, catalog);
   const first = await requestCoachWorkout(model, apiKey, prompt);
   const parsed = coachWorkoutSchema.safeParse(first);
@@ -442,12 +445,6 @@ function buildFallbackCoachWorkout(
       },
     ],
   };
-}
-
-function findPreviousExercise(history: SessionWithDetails[], exerciseId: string) {
-  return history
-    .flatMap((session) => session.session_exercises)
-    .find((sessionExercise) => sessionExercise.exercise_id === exerciseId);
 }
 
 function instructionBlocksExercise(instruction: string, exercise: Exercise) {

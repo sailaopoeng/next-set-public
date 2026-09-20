@@ -4,13 +4,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Exercise, SessionWithDetails } from "@/lib/domain";
 import { findExerciseReplacements } from "@/server/exercise-replacements/replacements";
 import {
-  listAllCompletedSessionDetails,
+  listCompletedSessionDetails,
   listExercises,
   listTemplates,
 } from "@/server/db/queries";
 
 vi.mock("@/server/db/queries", () => ({
-  listAllCompletedSessionDetails: vi.fn(),
+  listCompletedSessionDetails: vi.fn(),
   listExercises: vi.fn(),
   listTemplates: vi.fn(),
 }));
@@ -28,7 +28,7 @@ describe("exercise replacements", () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
     vi.mocked(listTemplates).mockResolvedValue([]);
-    vi.mocked(listAllCompletedSessionDetails).mockResolvedValue([]);
+    vi.mocked(listCompletedSessionDetails).mockResolvedValue([]);
   });
 
   it("includes imported AI-disabled exercises when they are common same-muscle options", async () => {
@@ -122,7 +122,7 @@ describe("exercise replacements", () => {
       enabled: true,
     });
     vi.mocked(listExercises).mockResolvedValue([sourceExercise, replacement]);
-    vi.mocked(listAllCompletedSessionDetails).mockResolvedValue([
+    vi.mocked(listCompletedSessionDetails).mockResolvedValue([
       makeHistorySession(replacement),
     ]);
 

@@ -2,7 +2,7 @@ import { authErrorResponse, requireAllowedUser } from "@/lib/auth/server";
 import { buildDashboardAnalytics } from "@/server/analytics/calculations";
 import {
   getProfilePreferences,
-  listAllCompletedSessionDetails,
+  listAnalyticsSessions,
 } from "@/server/db/queries";
 
 export const runtime = "nodejs";
@@ -12,7 +12,7 @@ export async function GET() {
   try {
     const { supabase, user } = await requireAllowedUser();
     const [sessions, preferences] = await Promise.all([
-      listAllCompletedSessionDetails(supabase, user.id),
+      listAnalyticsSessions(supabase, user.id),
       getProfilePreferences(supabase, user.id),
     ]);
 

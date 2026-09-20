@@ -27,7 +27,7 @@ export function PlateCalculatorButton({
     <>
       <button
         aria-label="Open barbell plate calculator"
-        className={`inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 ${
+        className={`inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 transition hover:bg-slate-50 ${
           compact ? "h-8 px-2" : "h-10 w-10"
         } ${className}`}
         onClick={() => setIsOpen(true)}
@@ -72,19 +72,19 @@ function PlateCalculatorDialog({ onClose }: { onClose: () => void }) {
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/45 p-2 sm:items-center sm:p-4"
       role="dialog"
     >
-      <div className="w-full rounded-3xl border border-slate-200 bg-white p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl dark:border-slate-800 dark:bg-slate-900 sm:max-w-md sm:pb-4">
+      <div className="w-full rounded-3xl border border-slate-200 bg-white p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl sm:max-w-md sm:pb-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-bold text-slate-950 dark:text-slate-100">
+            <h2 className="text-base font-bold text-slate-950">
               Plate calculator
             </h2>
-            <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+            <p className="mt-0.5 text-xs font-medium text-slate-500">
               Per side, using a {formatKg(barKg)} bar.
             </p>
           </div>
           <button
             aria-label="Close plate calculator"
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100"
             onClick={onClose}
             type="button"
           >
@@ -94,7 +94,7 @@ function PlateCalculatorDialog({ onClose }: { onClose: () => void }) {
 
         <div className="mt-4 grid grid-cols-[minmax(0,1fr)_6.5rem] gap-2">
           <label className="block">
-            <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+            <span className="text-xs font-bold text-slate-600">
               Total weight
             </span>
             <div className="mt-1 flex items-center gap-2">
@@ -124,7 +124,7 @@ function PlateCalculatorDialog({ onClose }: { onClose: () => void }) {
           </label>
 
           <label className="block">
-            <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+            <span className="text-xs font-bold text-slate-600">
               Bar
             </span>
             <input
@@ -143,7 +143,7 @@ function PlateCalculatorDialog({ onClose }: { onClose: () => void }) {
         <div className="mt-3 grid grid-cols-3 gap-1.5">
           {QUICK_TARGETS_KG.map((weightKg) => (
             <button
-              className="h-9 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-700 transition hover:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+              className="h-9 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-700 transition hover:bg-white"
               key={weightKg}
               onClick={() => setTargetInput(String(weightKg))}
               type="button"
@@ -154,7 +154,7 @@ function PlateCalculatorDialog({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="mt-4">
-          <div className="text-xs font-bold text-slate-600 dark:text-slate-300">
+          <div className="text-xs font-bold text-slate-600">
             Available plates
           </div>
           <div className="mt-2 grid grid-cols-4 gap-1.5">
@@ -165,8 +165,8 @@ function PlateCalculatorDialog({ onClose }: { onClose: () => void }) {
                 <label
                   className={`flex min-h-10 cursor-pointer items-center justify-center rounded-xl border px-1.5 text-xs font-bold tabular-nums transition ${
                     isAvailable
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                      : "border-slate-200 bg-white text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border-slate-200 bg-white text-slate-400"
                   }`}
                   key={plateKg}
                 >
@@ -187,14 +187,14 @@ function PlateCalculatorDialog({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
           {canCalculate ? (
             <>
               <div className="flex items-baseline justify-between gap-3">
-                <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                <span className="text-sm font-bold text-slate-600">
                   Each side
                 </span>
-                <span className="text-2xl font-extrabold tabular-nums text-slate-950 dark:text-slate-100">
+                <span className="text-2xl font-extrabold tabular-nums text-slate-950">
                   {formatKg(calculation.perSideKg)}
                 </span>
               </div>
@@ -202,32 +202,32 @@ function PlateCalculatorDialog({ onClose }: { onClose: () => void }) {
                 {calculation.plates.length > 0 ? (
                   calculation.plates.map((plate) => (
                     <div
-                      className="flex items-center justify-between rounded-xl bg-white px-3 py-2 text-sm dark:bg-slate-900"
+                      className="flex items-center justify-between rounded-xl bg-white px-3 py-2 text-sm"
                       key={plate.weightKg}
                     >
-                      <span className="font-bold text-slate-700 dark:text-slate-200">
+                      <span className="font-bold text-slate-700">
                         {formatKg(plate.weightKg)} plate
                       </span>
-                      <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-extrabold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                      <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-extrabold text-emerald-800">
                         x{plate.count}
                       </span>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                  <p className="text-sm font-medium text-slate-600">
                     Empty bar.
                   </p>
                 )}
               </div>
               {!calculation.isBalanced ? (
-                <p className="mt-3 rounded-xl bg-amber-100 p-2.5 text-xs font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                <p className="mt-3 rounded-xl bg-amber-100 p-2.5 text-xs font-bold text-amber-800">
                   Add {formatKg(calculation.remainingKg)} more per side, or use
                   smaller plates.
                 </p>
               ) : null}
             </>
           ) : (
-            <p className="text-sm font-semibold text-rose-700 dark:text-rose-300">
+            <p className="text-sm font-semibold text-rose-700">
               Enter a total weight at least as heavy as the bar.
             </p>
           )}
@@ -264,7 +264,7 @@ function StepButton({
   return (
     <button
       aria-label={label}
-      className="flex h-12 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+      className="flex h-12 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 transition hover:bg-slate-50"
       onClick={onClick}
       type="button"
     >

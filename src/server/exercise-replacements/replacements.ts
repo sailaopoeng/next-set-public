@@ -10,14 +10,13 @@ import type {
 import type { z } from "zod";
 import type { suggestedTargetSchema } from "@/lib/validation/schemas";
 import {
-  listAllCompletedSessionDetails,
+  listCompletedSessionDetails,
   listExercises,
   listTemplates,
 } from "@/server/db/queries";
 import { recommendProgression } from "@/server/progression/rules";
+import { GEMINI_BASE_URL, getGeminiModel } from "@/server/ai/models";
 
-const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
-const DEFAULT_MODEL = "gemini-3.1-flash-lite";
 const AI_TIMEOUT_MS = 1200;
 const RESULT_LIMIT = 4;
 
@@ -49,7 +48,7 @@ export async function findExerciseReplacements(
   const [exercises, templates, history] = await Promise.all([
     listExercises(supabase, userId),
     listTemplates(supabase, userId),
-    listAllCompletedSessionDetails(supabase, userId),
+    listCompletedSessionDetails(supabase, userId, 20),
   ]);
   const source = exercises.find((exercise) => exercise.id === input.sourceExerciseId);
 
@@ -126,7 +125,10 @@ function scoreCandidate(
     reasonTags.push("in templates");
   }
 
-  const previous = findPreviousExercise(history, exercise.id);
+  const previousSession = history.find((session) =>
+    session.session_exercises.some((item) => item.exercise_id === exercise.id),
+  );
+  const previous = previousSession?.session_exercises.find((item) => item.exercise_id === exercise.id);
   if (previous) {
     score += 18;
     reasonTags.push("from history");
@@ -136,7 +138,7 @@ function scoreCandidate(
 
   return {
     exercise,
-    target: buildReplacementTarget(exercise, currentTarget, templateMatch, previous),
+    target: buildReplacementTarget(exercise, currentTarget, templateMatch, previous, previousSession?.notes),
     reasonTags,
     score,
   };
@@ -147,11 +149,13 @@ function buildReplacementTarget(
   currentTarget: SuggestedTarget,
   templateMatch: (TemplateExercise & { exercise: Exercise }) | undefined,
   previous: SessionWithDetails["session_exercises"][number] | undefined,
+  sessionNotes?: string | null,
 ): SuggestedTarget {
   if (previous) {
     return recommendProgression({
       sessionExercise: previous,
       sets: previous.session_sets,
+      sessionNotes,
     }).suggestedTarget;
   }
 
@@ -181,12 +185,6 @@ function comparableTargetWeight(exercise: Exercise, target: SuggestedTarget) {
   return target.weightKg;
 }
 
-function findPreviousExercise(history: SessionWithDetails[], exerciseId: string) {
-  return history
-    .flatMap((session) => session.session_exercises)
-    .find((sessionExercise) => sessionExercise.exercise_id === exerciseId);
-}
-
 async function maybeRerankWithAi(
   source: Exercise,
   candidates: ExerciseReplacementCandidate[],
@@ -194,7 +192,7 @@ async function maybeRerankWithAi(
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || candidates.length < RESULT_LIMIT) return candidates;
 
-  const model = process.env.GEMINI_MODEL ?? DEFAULT_MODEL;
+  const model = getGeminiModel();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
 

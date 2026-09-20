@@ -1,4 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AnalyticsSession } from "@/server/analytics/calculations";
+import {
+  filterHistoryRows,
+  type HistoryFilters,
+  type HistoryIndexRow,
+} from "@/lib/history-filters";
 
 import type {
   Exercise,
@@ -15,6 +21,11 @@ import {
   normalizeWeeklyMuscleTargetSettings,
   type WeeklyMuscleTargetSettings,
 } from "@/lib/weekly-targets";
+import {
+  pickLatestPreviousPerformance,
+  type PreviousExercisePerformance,
+  type PreviousSetSourceSession,
+} from "@/lib/previous-sets";
 import type {
   liveSessionSyncSchema,
   preparedSessionSchema,
@@ -59,6 +70,22 @@ export async function getProfilePreferences(
       data.weekly_muscle_targets,
     ),
   };
+}
+
+export async function updateWeeklyWorkoutTarget(
+  supabase: SupabaseClient,
+  userId: string,
+  target: number,
+): Promise<number> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ weekly_workout_target: target })
+    .eq("id", userId)
+    .select("weekly_workout_target")
+    .single();
+
+  if (error) throw error;
+  return Number(data.weekly_workout_target);
 }
 
 export async function updateWeeklyMuscleTargets(
@@ -268,6 +295,123 @@ export async function listRecentSessions(
 
   if (error) throw error;
   return (data ?? []).map(normalizeSessionDetails);
+}
+
+export async function listHistorySessions(
+  supabase: SupabaseClient,
+  userId: string,
+  filters: HistoryFilters,
+): Promise<{ sessions: SessionWithDetails[]; total: number; page: number; pageCount: number }> {
+  const indexPageSize = 250;
+  const historyRows: HistoryIndexRow[] = [];
+  for (let start = 0; ; start += indexPageSize) {
+    let query = supabase
+      .from("workout_sessions")
+      .select("id,name,template_id,performed_at,session_exercises(exercise:exercises(name))")
+      .eq("user_id", userId)
+      .order("performed_at", { ascending: false });
+    if (filters.templateId) query = query.eq("template_id", filters.templateId);
+    if (filters.from) query = query.gte("performed_at", `${filters.from}T00:00:00+08:00`);
+    if (filters.to) {
+      const end = new Date(new Date(`${filters.to}T00:00:00+08:00`).getTime() + 86_400_000);
+      query = query.lt("performed_at", end.toISOString());
+    }
+    const { data, error } = await query.range(start, start + indexPageSize - 1);
+    if (error) throw error;
+    const rows = (data ?? []) as unknown as HistoryIndexRow[];
+    historyRows.push(...rows);
+    if (rows.length < indexPageSize) break;
+  }
+
+  const matches = filterHistoryRows(historyRows, filters);
+  const pageSize = 25;
+  const pageCount = Math.max(1, Math.ceil(matches.length / pageSize));
+  const page = Math.min(filters.page, pageCount);
+  const ids = matches.slice((page - 1) * pageSize, page * pageSize).map((row) => row.id);
+  if (ids.length === 0) return { sessions: [], total: matches.length, page, pageCount };
+
+  const { data, error } = await supabase
+    .from("workout_sessions")
+    .select("*, session_exercises(*, exercise:exercises(*), session_sets(*))")
+    .eq("user_id", userId)
+    .in("id", ids);
+  if (error) throw error;
+  const byId = new Map((data ?? []).map((row) => [String(row.id), normalizeSessionDetails(row)]));
+  return {
+    sessions: ids.flatMap((id) => byId.get(id) ? [byId.get(id)!] : []),
+    total: matches.length,
+    page,
+    pageCount,
+  };
+}
+
+export async function findActiveSession(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<SessionWithDetails | null> {
+  const { data, error } = await supabase
+    .from("workout_sessions")
+    .select("*, session_exercises(*, exercise:exercises(*), session_sets(*))")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .order("started_at", { ascending: false })
+    .limit(1);
+
+  if (error) throw error;
+  const row = data?.[0];
+  return row ? normalizeSessionDetails(row) : null;
+}
+
+export async function listLatestCompletedSetsByExerciseIds(
+  supabase: SupabaseClient,
+  userId: string,
+  exerciseIds: string[],
+  excludeSessionId: string,
+): Promise<Record<string, PreviousExercisePerformance>> {
+  if (exerciseIds.length === 0) return {};
+
+  const uniqueExerciseIds = [...new Set(exerciseIds)];
+  const results = await Promise.all(uniqueExerciseIds.map(async (exerciseId) => {
+    // Search only this exercise, and keep paging until a completed set is found.
+    // A fixed window of recent workouts can miss an infrequently trained lift.
+    const pageSize = 20;
+    for (let start = 0; ; start += pageSize) {
+      const { data, error } = await supabase
+        .from("workout_sessions")
+        .select(
+          "id, performed_at, session_exercises!inner(exercise_id, session_sets(set_number, weight_kg, reps, rpe, completed))",
+        )
+        .eq("user_id", userId)
+        .eq("status", "completed")
+        .neq("id", excludeSessionId)
+        .eq("session_exercises.exercise_id", exerciseId)
+        .order("performed_at", { ascending: false })
+        .range(start, start + pageSize - 1);
+
+      if (error) throw error;
+      const rows = (data ?? []) as PreviousSetSourceSession[];
+      const previous = pickLatestPreviousPerformance(rows, [exerciseId])[exerciseId];
+      if (previous) return [exerciseId, previous] as const;
+      if (rows.length < pageSize) return null;
+    }
+  }));
+
+  return Object.fromEntries(results.filter((result) => result !== null));
+}
+
+export async function findLatestCompletedSetsForExercise(
+  supabase: SupabaseClient,
+  userId: string,
+  exerciseId: string,
+  excludeSessionId: string,
+): Promise<PreviousExercisePerformance | null> {
+  const previous = await listLatestCompletedSetsByExerciseIds(
+    supabase,
+    userId,
+    [exerciseId],
+    excludeSessionId,
+  );
+  return previous[exerciseId] ?? null;
 }
 
 export async function getSessionDetails(
@@ -1135,30 +1279,54 @@ export async function listCompletedSessionDetailsInRange(
   return (data ?? []).map(normalizeSessionDetails);
 }
 
-export async function listAllCompletedSessionDetails(
+export async function listCompletedSessionsForExercise(
   supabase: SupabaseClient,
   userId: string,
-) {
+  exerciseId: string,
+): Promise<SessionWithDetails[]> {
   const pageSize = 250;
   const sessions: SessionWithDetails[] = [];
 
   for (let start = 0; ; start += pageSize) {
     const { data, error } = await supabase
       .from("workout_sessions")
-      .select("*, session_exercises(*, exercise:exercises(*), session_sets(*))")
+      .select("*, session_exercises!inner(*, exercise:exercises(*), session_sets(*))")
       .eq("user_id", userId)
       .eq("status", "completed")
+      .eq("session_exercises.exercise_id", exerciseId)
       .order("performed_at", { ascending: false })
       .range(start, start + pageSize - 1);
 
     if (error) throw error;
-
     const page = (data ?? []).map(normalizeSessionDetails);
     sessions.push(...page);
+    if (page.length < pageSize) return sessions;
+  }
+}
 
-    if (page.length < pageSize) {
-      return sessions;
-    }
+export async function listAnalyticsSessions(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<AnalyticsSession[]> {
+  const pageSize = 250;
+  const sessions: AnalyticsSession[] = [];
+
+  for (let start = 0; ; start += pageSize) {
+    const { data, error } = await supabase
+      .from("workout_sessions")
+      .select(
+        "id,name,status,performed_at,notes,session_exercises(exercise_id,notes,exercise:exercises(id,name,primary_muscle_group,secondary_muscle_groups,is_main_lift,volume_multiplier),session_sets(weight_kg,reps,rpe,completed,note))",
+      )
+      .eq("user_id", userId)
+      .eq("status", "completed")
+      .eq("session_exercises.session_sets.completed", true)
+      .order("performed_at", { ascending: false })
+      .range(start, start + pageSize - 1);
+
+    if (error) throw error;
+    const page = (data ?? []) as unknown as AnalyticsSession[];
+    sessions.push(...page);
+    if (page.length < pageSize) return sessions;
   }
 }
 

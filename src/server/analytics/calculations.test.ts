@@ -354,6 +354,23 @@ describe("analytics calculations", () => {
     ]);
   });
 
+  it("flags pain in session and exercise notes for trained exercises", () => {
+    const sessionNote = session("2026-05-24T10:00:00+08:00");
+    sessionNote.notes = "sharp shoulder pain";
+    const exerciseNote = session("2026-05-23T10:00:00+08:00");
+    exerciseNote.session_exercises[0].notes = "knee injury";
+    const analytics = buildDashboardAnalytics(
+      [sessionNote, exerciseNote],
+      new Date("2026-05-25T10:00:00+08:00"),
+    );
+
+    expect(analytics.fatigueWatchList.filter((event) => event.type === "pain"))
+      .toEqual([
+        expect.objectContaining({ sessionId: sessionNote.id, exerciseName: "Back Squat" }),
+        expect.objectContaining({ sessionId: exerciseNote.id, exerciseName: "Back Squat" }),
+      ]);
+  });
+
   it("returns nullable records and no exercise rows without completed sets", () => {
     const workout = session("2026-05-24T10:00:00+08:00");
     workout.session_exercises[0].session_sets[0].completed = false;
@@ -457,5 +474,19 @@ describe("analytics calculations", () => {
       value: 115.5,
       sessionId: newer.id,
     });
+    expect(detail.strengthPoints).toEqual([
+      {
+        date: older.performed_at,
+        estimatedOneRepMax: 114,
+        maxWeight: 90,
+        sessionId: older.id,
+      },
+      {
+        date: newer.performed_at,
+        estimatedOneRepMax: 115.5,
+        maxWeight: 105,
+        sessionId: newer.id,
+      },
+    ]);
   });
 });

@@ -8,7 +8,7 @@ import {
 } from "@/server/analytics/calculations";
 import {
   getProfilePreferences,
-  listAllCompletedSessionDetails,
+  listAnalyticsSessions,
   listDeloadWeeks,
   listWeeklyAnalyses,
 } from "@/server/db/queries";
@@ -19,7 +19,7 @@ export default async function AnalyticsPage() {
   const { supabase, ownerId, isOwner } = await getPageViewer();
   const [sessions, preferences, analyses, deloadWeeks] = ownerId
     ? await Promise.all([
-        listAllCompletedSessionDetails(supabase, ownerId),
+        listAnalyticsSessions(supabase, ownerId),
         getProfilePreferences(supabase, ownerId),
         listWeeklyAnalyses(supabase, ownerId),
         listDeloadWeeks(supabase, ownerId),

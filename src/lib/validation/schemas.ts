@@ -128,6 +128,10 @@ export const weeklyMuscleTargetsUpdateSchema = z
   ) as Record<(typeof WEEKLY_MUSCLE_GROUPS)[number], typeof weeklyTargetRangeSchema>)
   .strict();
 
+export const weeklyWorkoutTargetUpdateSchema = z.object({
+  target: z.number().int().min(1).max(14),
+}).strict();
+
 export const weeklyAnalysisRequestSchema = z.object({
   weekStart: z.string().date(),
 }).strict();

@@ -18,17 +18,17 @@ import {
 import { getSingaporeWeekday } from "@/lib/workout-schedule";
 import {
   listAiSuggestionExercises,
-  listAllCompletedSessionDetails,
+  listCompletedSessionDetails,
+  listCompletedSessionDetailsInRange,
   getProfilePreferences,
   listTemplates,
 } from "@/server/db/queries";
+import { GEMINI_BASE_URL, getGeminiModel } from "@/server/ai/models";
 import {
   recommendProgression,
   type ProgressionRecommendation,
 } from "@/server/progression/rules";
 
-const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
-const DEFAULT_MODEL = "gemini-3.1-flash-lite";
 const AI_SUGGESTION_NAMES = [
   "Aurora Ascent",
   "Emerald Horizon",
@@ -92,28 +92,30 @@ export async function reviewAndSaveSession(
   const reviewedWeek = getSundayWeekRangeSingapore(
     new Date(session.performed_at),
   );
-  const [templates, allCompletedSessions, allowedExercises, preferences] =
+  const [templates, recentSessions, reviewedWeekSessions, allowedExercises, preferences] =
     await Promise.all([
       listTemplates(supabase, userId),
-      listAllCompletedSessionDetails(supabase, userId),
+      listCompletedSessionDetails(supabase, userId, 20),
+      listCompletedSessionDetailsInRange(
+        supabase, userId, reviewedWeek.weekStart.toISOString(), reviewedWeek.weekEnd.toISOString(),
+      ),
       listAiSuggestionExercises(supabase, userId),
       getProfilePreferences(supabase, userId),
     ]);
-  const recentSessions = allCompletedSessions.slice(0, 20);
-  const reviewedWeekSessions = sessionsInRange(
-    allCompletedSessions,
-    reviewedWeek,
-  );
   const planningWeek = getSuggestionPlanningRange(
     session,
     reviewedWeekSessions,
     preferences.weeklyMuscleTargets,
   );
-  const weeklySessions = sessionsInRange(allCompletedSessions, planningWeek);
+  const weeklySessions = planningWeek.weekStart.getTime() === reviewedWeek.weekStart.getTime()
+    ? reviewedWeekSessions
+    : await listCompletedSessionDetailsInRange(
+        supabase, userId, planningWeek.weekStart.toISOString(), planningWeek.weekEnd.toISOString(),
+      );
   const context = buildPlanningContext(
     session,
     templates,
-    allCompletedSessions,
+    recentSessions,
     weeklySessions,
     allowedExercises,
     planningWeek,
@@ -141,6 +143,7 @@ export function buildFallbackReview(
     recommendProgression({
       sessionExercise: exercise,
       sets: exercise.session_sets,
+      sessionNotes: session.notes,
     }),
   );
   const context =
@@ -170,7 +173,7 @@ export async function getAiReview(
     return fallback;
   }
 
-  const model = process.env.GEMINI_MODEL ?? DEFAULT_MODEL;
+  const model = getGeminiModel();
   const initialReview = await requestGeminiReview(
     model,
     apiKey,
@@ -398,7 +401,7 @@ async function saveReview(
   const { error } = await supabase.rpc("save_session_review", {
     p_session_id: session.id,
     p_provider: process.env.GEMINI_API_KEY ? "gemini" : "fallback",
-    p_model: process.env.GEMINI_MODEL ?? DEFAULT_MODEL,
+    p_model: getGeminiModel(),
     p_summary: review.sessionSummary,
     p_raw_json: review,
     p_decisions: review.exerciseDecisions.map((decision) => ({
@@ -602,13 +605,17 @@ function buildTemplateTarget(
     currentSession,
     ...recentSessions.filter((session) => session.id !== currentSession.id),
   ];
-  const previousExercise = history
-    .flatMap((session) => session.session_exercises)
-    .find((exercise) => exercise.exercise_id === templateExercise.exercise_id);
+  const previousSession = history.find((session) =>
+    session.session_exercises.some((exercise) => exercise.exercise_id === templateExercise.exercise_id),
+  );
+  const previousExercise = previousSession?.session_exercises.find(
+    (exercise) => exercise.exercise_id === templateExercise.exercise_id,
+  );
   const progression = previousExercise
     ? recommendProgression({
         sessionExercise: previousExercise,
         sets: previousExercise.session_sets,
+        sessionNotes: previousSession?.notes,
       })
     : null;
 
@@ -859,15 +866,19 @@ function applySafeSuggestionWeight(
   exercise: Exercise,
   context: PlanningContext,
 ) {
-  const previousExercise = context.history
-    .flatMap((historySession) => historySession.session_exercises)
-    .find((sessionExercise) => sessionExercise.exercise_id === exercise.id);
+  const previousSession = context.history.find((historySession) =>
+    historySession.session_exercises.some((sessionExercise) => sessionExercise.exercise_id === exercise.id),
+  );
+  const previousExercise = previousSession?.session_exercises.find(
+    (sessionExercise) => sessionExercise.exercise_id === exercise.id,
+  );
 
   if (!previousExercise) return target;
 
   const safe = recommendProgression({
     sessionExercise: previousExercise,
     sets: previousExercise.session_sets,
+    sessionNotes: previousSession?.notes,
   }).suggestedTarget;
 
   if (

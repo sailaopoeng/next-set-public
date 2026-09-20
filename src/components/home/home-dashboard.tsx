@@ -2,7 +2,9 @@ import { Fragment, type ReactNode } from "react";
 import { BarChart3, CalendarCheck, Dumbbell, Flame } from "lucide-react";
 
 import { MuscleProgressCard } from "@/components/home/muscle-progress-card";
+import { WeeklyWorkoutTargetEditor } from "@/components/home/weekly-workout-target-editor";
 import { orderHomeWorkoutTemplates } from "@/components/home/template-order";
+import { ResumeSessionCard } from "@/components/session/resume-session-card";
 import { SessionSummaryCard } from "@/components/session/session-summary-card";
 import {
   ImportStarterButton,
@@ -40,6 +42,7 @@ export function HomeDashboard({
   recentSessions,
   acceptedSuggestion,
   lastCompletedTemplateId,
+  activeSession,
   analytics,
   weeklyWorkoutTarget,
   weeklyMuscleTargets = DEFAULT_WEEKLY_MUSCLE_TARGET_SETTINGS,
@@ -49,6 +52,7 @@ export function HomeDashboard({
   recentSessions: SessionWithDetails[];
   acceptedSuggestion: SuggestionWithExercises | null;
   lastCompletedTemplateId: string | null;
+  activeSession: SessionWithDetails | null;
   analytics: DashboardAnalytics;
   weeklyWorkoutTarget: number;
   weeklyMuscleTargets?: WeeklyMuscleTargetSettings;
@@ -63,6 +67,9 @@ export function HomeDashboard({
 
   return (
     <div className="space-y-4">
+      {activeSession ? (
+        <ResumeSessionCard isOwner={isOwner} session={activeSession} />
+      ) : null}
       <section className="grid grid-cols-4 gap-2 md:gap-3">
         <MetricCard
           icon={<CalendarCheck size={16} />}
@@ -85,6 +92,7 @@ export function HomeDashboard({
           value={`${analytics.weeklyTargetStreak}w`}
         />
       </section>
+      {isOwner ? <WeeklyWorkoutTargetEditor target={weeklyWorkoutTarget} /> : null}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-4 flex items-center justify-between gap-3">

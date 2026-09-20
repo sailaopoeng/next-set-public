@@ -8,6 +8,7 @@ import type {
 } from "@/lib/domain";
 import type { WeeklyMuscleTargetSettings } from "@/lib/weekly-targets";
 import { sessionSetVolume } from "@/lib/workout-metrics";
+import { sessionMentionsPain } from "@/lib/pain";
 import {
   buildWeeklyMuscleSetProgress,
   formatSingaporeDateKey,
@@ -24,11 +25,9 @@ import {
   epleyEstimatedOneRepMax,
   recommendProgression,
 } from "@/server/progression/rules";
+import { GEMINI_BASE_URL, getGeminiModel } from "@/server/ai/models";
 
-const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
-const DEFAULT_MODEL = "gemini-3.1-flash-lite";
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const PAIN_PATTERN = /\b(pain|hurt|ache|strain|pinch|sharp|injury|sore joint)\b/i;
 
 const weeklyAiResponseSchema = z.object({
   summary: z.string().trim().min(1).max(700),
@@ -100,7 +99,7 @@ export async function generateAndSaveWeeklyAnalysis(
     confirmedForSelectedWeek,
     confirmedForNextWeek,
   );
-  const model = process.env.GEMINI_MODEL ?? DEFAULT_MODEL;
+  const model = getGeminiModel();
   const ai = await requestWeeklyAiSummary(model, facts, selectedSessions).catch(
     () => null,
   );
@@ -191,12 +190,8 @@ function detectDeloadSignals(
   const missedTargetSessions = new Set<string>();
 
   for (const session of selected) {
-    if (PAIN_PATTERN.test(session.notes ?? "")) painSessions.add(session.id);
+    if (sessionMentionsPain(session)) painSessions.add(session.id);
     for (const exercise of session.session_exercises) {
-      if (
-        PAIN_PATTERN.test(exercise.notes ?? "") ||
-        exercise.session_sets.some((set) => PAIN_PATTERN.test(set.note ?? ""))
-      ) painSessions.add(session.id);
       const completed = exercise.session_sets.filter((set) => set.completed);
       if (completed.some((set) => (set.rpe ?? 0) >= 9)) highRpeSessions.add(session.id);
       if (
@@ -258,6 +253,7 @@ function buildNormalActions(
       const recommendation = recommendProgression({
         sessionExercise: exercise,
         sets: exercise.session_sets,
+        sessionNotes: session.notes,
       });
       actions.push({
         id: `exercise:${exercise.exercise_id}`,

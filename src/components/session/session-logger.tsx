@@ -15,6 +15,7 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
+  Copy,
   LogOut,
   Link2,
   MessageSquare,
@@ -50,6 +51,13 @@ import {
   parseLiveSessionBackup,
 } from "@/components/session/live-session-persistence";
 import {
+  clearRestTimer,
+  consumeRestTimer,
+  remainingRestSeconds,
+  writeRestTimer,
+  type RestTimerState,
+} from "@/components/session/rest-timer";
+import {
   LIVE_EXERCISE_STICKY_HEADER_CLASS_NAME,
   LIVE_SESSION_ROOT_CLASS_NAME,
   LIVE_SESSION_STICKY_FOOTER_CLASS_NAME,
@@ -59,15 +67,19 @@ import { Button } from "@/components/ui/button";
 import { PlateCalculatorButton } from "@/components/ui/plate-calculator";
 import { SortableList } from "@/components/ui/sortable-list";
 import type { Exercise, SessionSet, SessionWithDetails } from "@/lib/domain";
+import { notifyRestComplete, notifySetComplete } from "@/lib/haptics";
+import {
+  applyPreviousPerformance,
+  copyPreviousSetValues,
+  formatPreviousPerformanceSummary,
+  formatPreviousSetLabel,
+  previousSetForNumber,
+  type PreviousExercisePerformance,
+  type PreviousSetSnapshot,
+} from "@/lib/previous-sets";
 import { buildSupersetBlocks, shouldStartRestTimer, type SupersetBlock } from "@/lib/supersets";
+import { releaseScreenWakeLock, requestScreenWakeLock } from "@/lib/wake-lock";
 import { sessionVolume } from "@/lib/workout-metrics";
-
-type RestTimer = {
-  exerciseName: string;
-  seconds: number;
-  endAt: number;
-  visible: boolean;
-};
 
 const RPE_MIN = 5;
 const RPE_MAX = 10;
@@ -83,10 +95,12 @@ const RPE_OPTIONS = Array.from(
 export function SessionLogger({
   session,
   exercises,
+  previousByExerciseId: initialPreviousByExerciseId = {},
   readOnly = false,
 }: {
   session: SessionWithDetails;
   exercises: Exercise[];
+  previousByExerciseId?: Record<string, PreviousExercisePerformance>;
   readOnly?: boolean;
 }) {
   const router = useTrackedRouter();
@@ -125,8 +139,14 @@ export function SessionLogger({
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [restTimer, setRestTimer] = useState<RestTimer | null>(null);
-  const [restTimerRemainingSeconds, setRestTimerRemainingSeconds] = useState(0);
+  const [restTimer, setRestTimer] = useState<RestTimerState | null>(null);
+  const [previousByExerciseId, setPreviousByExerciseId] = useState(
+    initialPreviousByExerciseId,
+  );
+  const previousLoadedRef = useRef(
+    new Set(Object.keys(initialPreviousByExerciseId)),
+  );
+  const [setPrefillRevision, setSetPrefillRevision] = useState(0);
   const [elapsedNow, setElapsedNow] = useState(() => Date.now());
   const [isExitOpen, setIsExitOpen] = useState(false);
   const [expandedCompletedExerciseIds, setExpandedCompletedExerciseIds] =
@@ -150,6 +170,9 @@ export function SessionLogger({
     () => getSessionStats(draft, elapsedNow),
     [draft, elapsedNow],
   );
+  const restTimerRemainingSeconds = restTimer
+    ? remainingRestSeconds(restTimer, elapsedNow)
+    : 0;
   const incompleteSessionSummary = useMemo(
     () => getIncompleteSessionSummary(draft.session_exercises),
     [draft.session_exercises],
@@ -192,6 +215,13 @@ export function SessionLogger({
         scheduleAutosaveEffect(100);
       } else if (window.localStorage.getItem(key)) {
         window.localStorage.removeItem(key);
+      }
+
+      const restoredTimer = consumeRestTimer(session.id);
+      if (restoredTimer.timer) {
+        setRestTimer(restoredTimer.timer);
+      } else if (restoredTimer.expired) {
+        notifyRestComplete();
       }
       setPersistenceHydrated(true);
     });
@@ -273,21 +303,37 @@ export function SessionLogger({
   }, []);
 
   useEffect(() => {
-    if (!restTimer?.visible) return;
+    if (!restTimer) {
+      void releaseScreenWakeLock();
+      return;
+    }
 
-    const interval = setInterval(() => {
-      const remaining = Math.max(
-        0,
-        Math.ceil((restTimer.endAt - Date.now()) / 1000),
-      );
-      setRestTimerRemainingSeconds(remaining);
-      if (remaining <= 0) {
-        setRestTimer(null);
+    const timer = restTimer;
+    writeRestTimer(session.id, timer);
+    if (timer.visible) {
+      void requestScreenWakeLock();
+    } else {
+      void releaseScreenWakeLock();
+    }
+
+    const timeout = window.setTimeout(() => {
+      notifyRestComplete();
+      clearRestTimer(session.id);
+      setRestTimer(null);
+    }, Math.max(0, timer.endAt - Date.now()));
+
+    function handleVisibility() {
+      if (document.visibilityState === "visible" && timer.visible) {
+        void requestScreenWakeLock();
       }
-    }, 1000);
+    }
 
-    return () => clearInterval(interval);
-  }, [restTimer?.endAt, restTimer?.visible]);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.clearTimeout(timeout);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [restTimer, session.id]);
 
   async function saveChanges() {
     if (interactionLockRef.current) return false;
@@ -465,7 +511,7 @@ export function SessionLogger({
               </div>
             </div>
             <PlateCalculatorButton
-              className="shrink-0 border-emerald-200 text-emerald-800 dark:border-emerald-800 dark:text-emerald-300"
+              className="shrink-0 border-emerald-200 text-emerald-800"
               compact
             />
             <label className="relative flex min-w-0 shrink-0 cursor-pointer items-center gap-1 rounded-full border border-slate-200 bg-white py-1 pl-2 pr-2.5 text-slate-500">
@@ -546,7 +592,7 @@ export function SessionLogger({
                   {handle}
                   <button
                     aria-expanded="false"
-                    className="flex min-h-12 min-w-0 flex-1 items-center gap-2.5 rounded-xl px-2 text-left transition hover:bg-emerald-100/70 dark:hover:bg-emerald-900/40"
+                    className="flex min-h-12 min-w-0 flex-1 items-center gap-2.5 rounded-xl px-2 text-left transition hover:bg-emerald-100/70"
                     onClick={() => toggleCompletedExercise(exercise.id)}
                     type="button"
                   >
@@ -554,16 +600,16 @@ export function SessionLogger({
                       <Check size={14} strokeWidth={3.5} />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-bold text-slate-900 dark:text-slate-100">
+                      <span className="block truncate text-sm font-bold text-slate-900">
                         {exercise.exercise.name}
                       </span>
-                      <span className="block text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                      <span className="block text-[11px] font-semibold text-emerald-700">
                         {exercise.session_sets.length}/
                         {exercise.session_sets.length} sets done
                       </span>
                     </span>
                     <ChevronDown
-                      className="shrink-0 text-emerald-700 dark:text-emerald-300"
+                      className="shrink-0 text-emerald-700"
                       size={18}
                     />
                   </button>
@@ -593,7 +639,7 @@ export function SessionLogger({
                           : ""}
                       </span>
                       <label
-                        className="inline-flex min-h-6 cursor-pointer items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-1.5 text-[10px] font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                        className="inline-flex min-h-6 cursor-pointer items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-1.5 text-[10px] font-bold text-slate-600"
                         title="Count the entered weight twice for volume in all sessions. Strength records and progression still use the entered weight."
                       >
                         <input
@@ -661,6 +707,7 @@ export function SessionLogger({
                 sourceExerciseId={exercise.exercise_id}
                 onChoose={(candidate) => replaceExercise(exercise.id, candidate)}
               />
+              {renderPreviousPerformanceBar(exercise)}
               <div className="grid grid-cols-[1.4rem_minmax(0,1.3fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_2.75rem_1.75rem_1.75rem] items-center gap-1 px-1 pb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
                 <span className="text-center">#</span>
                 <span>
@@ -677,14 +724,21 @@ export function SessionLogger({
               <div className="space-y-1.5">
                 {exercise.session_sets.map((set) => (
                   <SetRow
-                    key={set.id}
+                    key={`${set.id}:${setPrefillRevision}`}
                     set={set}
+                    previousSet={previousSetForNumber(
+                      previousByExerciseId[exercise.exercise_id],
+                      set.set_number,
+                    )}
                     canRemove={exercise.session_sets.length > 1}
                     disabled={saving || finishing || cancelling}
                     removeDisabled={false}
                     onChange={(nextSet) => updateSet(exercise.id, nextSet)}
                     onCompleted={() =>
                       maybeStartRestTimer(exercise, set.set_number)
+                    }
+                    onCopyPrevious={() =>
+                      copyPreviousSet(exercise.id, set.id)
                     }
                     onRemove={() => removeSet(set.id)}
                   />
@@ -849,7 +903,11 @@ export function SessionLogger({
                 timer ? { ...timer, visible: false } : timer,
               )
             }
-            onSkip={() => setRestTimer(null)}
+            onSkip={() => {
+              clearRestTimer(session.id);
+              void releaseScreenWakeLock();
+              setRestTimer(null);
+            }}
           />
         ) : null}
         {session.status === "active" ? (
@@ -1038,6 +1096,7 @@ export function SessionLogger({
                 sourceExerciseId={exercise.exercise_id}
                 onChoose={(candidate) => replaceExercise(exercise.id, candidate)}
               />
+              {renderPreviousPerformanceBar(exercise)}
             </div>
           ))}
         </div>
@@ -1054,12 +1113,18 @@ export function SessionLogger({
                       <span className="truncate text-xs font-bold">{exercise.exercise.name}</span>
                     </div>
                     <SetRow
+                      key={`${set.id}:${setPrefillRevision}`}
                       set={set}
+                      previousSet={previousSetForNumber(
+                        previousByExerciseId[exercise.exercise_id],
+                        set.set_number,
+                      )}
                       canRemove={false}
                       disabled={saving || finishing || cancelling}
                       removeDisabled
                       onChange={(nextSet) => updateSet(exercise.id, nextSet)}
                       onCompleted={() => maybeStartRestTimer(exercise, set.set_number)}
+                      onCopyPrevious={() => copyPreviousSet(exercise.id, set.id)}
                       onRemove={() => undefined}
                     />
                   </div>
@@ -1078,6 +1143,103 @@ export function SessionLogger({
         </div>
       </section>
     );
+  }
+
+  function renderPreviousPerformanceBar(
+    exercise: SessionWithDetails["session_exercises"][number],
+  ) {
+    const previous = previousByExerciseId[exercise.exercise_id];
+    if (!previous) return null;
+
+    return (
+      <div className="mb-2 flex min-w-0 items-center gap-2 rounded-xl bg-slate-50 px-2.5 py-1.5">
+        <p className="min-w-0 flex-1 truncate text-[11px] font-semibold text-slate-500">
+          <span className="mr-1 font-extrabold uppercase tracking-wide text-slate-400">
+            Last
+          </span>
+          {formatPreviousPerformanceSummary(previous)}
+        </p>
+        <button
+          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[11px] font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-40"
+          disabled={saving || finishing || cancelling}
+          onClick={() => copyLastSession(exercise.id)}
+          type="button"
+        >
+          <Copy size={12} />
+          Copy
+        </button>
+      </div>
+    );
+  }
+
+  function copyLastSession(sessionExerciseId: string) {
+    if (interactionLockRef.current) return;
+    const sessionExercise = draftRef.current.session_exercises.find(
+      (exercise) => exercise.id === sessionExerciseId,
+    );
+    const previous = sessionExercise
+      ? previousByExerciseId[sessionExercise.exercise_id]
+      : undefined;
+    if (!sessionExercise || !previous) return;
+
+    mutateDraft((current) => ({
+      ...current,
+      session_exercises: current.session_exercises.map((exercise) =>
+        exercise.id === sessionExerciseId
+          ? withSets(
+              exercise,
+              applyPreviousPerformance(
+                exercise.session_sets,
+                previous.sets,
+                exercise.id,
+              ),
+            )
+          : exercise,
+      ),
+    }));
+    setSetPrefillRevision((revision) => revision + 1);
+  }
+
+  function copyPreviousSet(sessionExerciseId: string, setId: string) {
+    if (interactionLockRef.current) return;
+    const sessionExercise = draftRef.current.session_exercises.find(
+      (exercise) => exercise.id === sessionExerciseId,
+    );
+    const currentSet = sessionExercise?.session_sets.find((set) => set.id === setId);
+    const previous = sessionExercise
+      ? previousSetForNumber(
+          previousByExerciseId[sessionExercise.exercise_id],
+          currentSet?.set_number ?? 0,
+        )
+      : null;
+    if (!sessionExercise || !currentSet || !previous || currentSet.completed) {
+      return;
+    }
+
+    updateSet(sessionExerciseId, copyPreviousSetValues(currentSet, previous));
+    setSetPrefillRevision((revision) => revision + 1);
+  }
+
+  async function ensurePreviousPerformance(exerciseId: string) {
+    if (previousLoadedRef.current.has(exerciseId)) return;
+    previousLoadedRef.current.add(exerciseId);
+
+    try {
+      const response = await fetch(
+        `/api/exercises/${exerciseId}/previous-sets?excludeSessionId=${session.id}`,
+      );
+      if (!response.ok) return;
+      const body = (await response.json()) as {
+        previous?: PreviousExercisePerformance | null;
+      };
+      if (!body.previous) return;
+      setPreviousByExerciseId((current) => ({
+        ...current,
+        [exerciseId]: body.previous as PreviousExercisePerformance,
+      }));
+    } catch {
+      previousLoadedRef.current.delete(exerciseId);
+    }
   }
 
   function renderPairButton(exercise: SessionWithDetails["session_exercises"][number]) {
@@ -1148,6 +1310,7 @@ export function SessionLogger({
       ]),
     }));
     flashExerciseAdded();
+    void ensurePreviousPerformance(exercise.id);
   }
 
   function flashExerciseAdded() {
@@ -1359,6 +1522,7 @@ export function SessionLogger({
         );
       }),
     }));
+    void ensurePreviousPerformance(candidate.exercise.id);
   }
 
   function updateSet(sessionExerciseId: string, nextSet: SessionSet) {
@@ -1432,13 +1596,15 @@ export function SessionLogger({
 
   function startRestTimer(exerciseName: string, seconds: number) {
     if (seconds <= 0) return;
-    setRestTimer({
+    const nextTimer: RestTimerState = {
       exerciseName,
       seconds,
       endAt: Date.now() + seconds * 1000,
       visible: true,
-    });
-    setRestTimerRemainingSeconds(seconds);
+    };
+    setRestTimer(nextTimer);
+    writeRestTimer(session.id, nextTimer);
+    void requestScreenWakeLock();
   }
 
   function maybeStartRestTimer(
@@ -1553,6 +1719,7 @@ export function SessionLogger({
     } catch {
       // A confirmed server save is still durable when localStorage is unavailable.
     }
+    clearRestTimer(session.id);
   }
 
   function scheduleAutosave(delay = AUTOSAVE_DELAY_MS) {
@@ -1704,19 +1871,19 @@ function IncompleteFinishDialog({
       className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-3 sm:items-center sm:p-4"
       role="dialog"
     >
-      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] shadow-2xl">
         <h2
-          className="text-lg font-bold text-slate-950 dark:text-slate-100"
+          className="text-lg font-bold text-slate-950"
           id="incomplete-finish-title"
         >
           Finish with unchecked sets?
         </h2>
-        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+        <p className="mt-2 text-sm text-slate-600">
           {summary.incompleteSetCount > 0
             ? `${summary.incompleteSetCount} ${setLabel} still unchecked.`
             : "At least one exercise has no completed sets."}
         </p>
-        <p className="mt-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
+        <p className="mt-2 text-sm font-semibold text-slate-800">
           {summary.incompleteExerciseNames.join(", ")}
         </p>
         <div className="mt-5 grid grid-cols-2 gap-2">
@@ -1775,19 +1942,23 @@ function formatStatNumber(value: number) {
 
 function SetRow({
   set,
+  previousSet,
   canRemove,
   disabled,
   removeDisabled,
   onChange,
   onCompleted,
+  onCopyPrevious,
   onRemove,
 }: {
   set: SessionSet;
+  previousSet: PreviousSetSnapshot | null;
   canRemove: boolean;
   disabled: boolean;
   removeDisabled: boolean;
   onChange: (set: SessionSet) => void;
   onCompleted: () => void;
+  onCopyPrevious: () => void;
   onRemove: () => void;
 }) {
   const [showNote, setShowNote] = useState(Boolean(set.note));
@@ -1880,6 +2051,7 @@ function SetRow({
               return;
             }
             setCompletionError(null);
+            notifySetComplete();
             onChange({ ...set, rpe: Number(rpeInput), completed: true });
             onCompleted();
           }}
@@ -1950,6 +2122,19 @@ function SetRow({
           value={set.note ?? ""}
           onChange={(event) => onChange({ ...set, note: event.target.value || null })}
         />
+      ) : null}
+      {previousSet ? (
+        <button
+          className="mt-1 flex w-full min-h-8 items-center justify-between gap-2 rounded-lg px-1 text-left text-[11px] font-semibold text-slate-400 disabled:opacity-60"
+          disabled={disabled || set.completed}
+          onClick={onCopyPrevious}
+          type="button"
+        >
+          <span className="truncate">
+            Last {formatPreviousSetLabel(previousSet)}
+          </span>
+          {set.completed ? null : <span className="shrink-0 text-emerald-700">Copy</span>}
+        </button>
       ) : null}
       {completionError ? (
         <p className="mt-1.5 px-1 text-xs font-semibold text-rose-700" role="alert">

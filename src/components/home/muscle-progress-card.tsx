@@ -100,7 +100,7 @@ export function MuscleProgressCard({
         <div className="flex flex-wrap items-center gap-2">
           {isOwner ? (
             <button
-              className="inline-flex min-h-10 items-center gap-2 rounded-full border border-slate-200 px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="inline-flex min-h-10 items-center gap-2 rounded-full border border-slate-200 px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
               onClick={() => {
                 setDraft(targets);
                 setError(null);
@@ -114,7 +114,7 @@ export function MuscleProgressCard({
           ) : null}
           <div
             aria-label="Weekly hypertrophy sets view"
-            className="flex shrink-0 rounded-full bg-slate-100 p-1 dark:bg-slate-800"
+            className="flex shrink-0 rounded-full bg-slate-100 p-1"
             role="tablist"
           >
             {VIEWS.map((option, index) => (
@@ -142,10 +142,10 @@ export function MuscleProgressCard({
       </div>
 
       {editing ? (
-        <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/50">
+        <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 p-3">
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {WEEKLY_MUSCLE_GROUPS.map((muscleGroup) => (
-              <div className="rounded-xl bg-white p-2.5 dark:bg-slate-900" key={muscleGroup}>
+              <div className="rounded-xl bg-white p-2.5" key={muscleGroup}>
                 <div className="mb-2 text-sm font-bold capitalize">{muscleGroup}</div>
                 <div className="grid grid-cols-2 gap-2">
                   <TargetInput
@@ -211,10 +211,10 @@ function TargetInput({
   onChange: (value: number) => void;
 }) {
   return (
-    <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
+    <label className="text-xs font-medium text-slate-600">
       {label}
       <input
-        className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-2 text-base text-slate-950 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+        className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-2 text-base text-slate-950"
         inputMode="decimal"
         max={50}
         min={0.5}
@@ -232,7 +232,7 @@ function MuscleRings({ progress }: { progress: MuscleSetProgress[] }) {
     <div className="grid items-center gap-5 md:grid-cols-[minmax(260px,300px)_1fr]">
       <svg
         aria-label="Weekly minimum set target progress rings. A complete ring means its muscle group has reached its minimum target."
-        className="pointer-events-none mx-auto h-auto w-full max-w-72 select-none text-slate-200 dark:text-slate-800"
+        className="pointer-events-none mx-auto h-auto w-full max-w-72 select-none text-slate-200"
         role="img"
         viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
       >

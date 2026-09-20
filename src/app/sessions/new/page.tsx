@@ -11,14 +11,20 @@ import {
   StartTemplateButton,
 } from "@/components/ui/action-buttons";
 import { AppLink } from "@/components/ui/app-activity";
+import { ResumeSessionCard } from "@/components/session/resume-session-card";
 import { getPageViewer } from "@/lib/auth/server";
-import { listTemplates } from "@/server/db/queries";
+import { findActiveSession, listTemplates } from "@/server/db/queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewSessionPage() {
   const { supabase, ownerId, isOwner } = await getPageViewer();
-  const templates = ownerId ? await listTemplates(supabase, ownerId) : [];
+  const [templates, activeSession] = ownerId
+    ? await Promise.all([
+        listTemplates(supabase, ownerId),
+        findActiveSession(supabase, ownerId),
+      ])
+    : [[], null];
   const { data: suggestions } = ownerId
     ? await supabase
         .from("workout_suggestions")
@@ -41,6 +47,11 @@ export default async function NewSessionPage() {
             : "View the available templates and latest AI suggestions."}
         </p>
       </div>
+      {activeSession ? (
+        <div className="mb-4">
+          <ResumeSessionCard isOwner={isOwner} session={activeSession} />
+        </div>
+      ) : null}
       {isOwner ? (
         <section className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
           <h2 className="font-bold">Log without a template</h2>

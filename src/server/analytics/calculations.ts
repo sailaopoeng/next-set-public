@@ -1,5 +1,6 @@
-import type { SessionSet, SessionWithDetails } from "@/lib/domain";
+import type { Exercise, SessionSet, SessionWithDetails, WorkoutSession } from "@/lib/domain";
 import { canonicalMuscleGroup } from "@/lib/muscle-groups";
+import { exerciseMentionsPain, textMentionsPain } from "@/lib/pain";
 import { sessionSetVolume } from "@/lib/workout-metrics";
 import {
   DEFAULT_WEEKLY_MUSCLE_TARGET_SETTINGS,
@@ -10,18 +11,32 @@ import { epleyEstimatedOneRepMax } from "@/server/progression/rules";
 
 const SINGAPORE_OFFSET_MS = 8 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const PAIN_PATTERN = /\b(pain|hurt|ache|strain|pinch|sharp|injury|sore joint)\b/i;
 
 export const WEEKLY_MUSCLE_TARGETS = toWeeklyMuscleTargets(
   DEFAULT_WEEKLY_MUSCLE_TARGET_SETTINGS,
 );
 
-type SessionExerciseWithSets = SessionWithDetails["session_exercises"][number];
+export type AnalyticsSession = Pick<
+  WorkoutSession,
+  "id" | "name" | "status" | "performed_at" | "notes"
+> & {
+  session_exercises: Array<{
+    exercise_id: string;
+    notes: string | null;
+    exercise: Pick<
+      Exercise,
+      "id" | "name" | "primary_muscle_group" | "secondary_muscle_groups" | "is_main_lift" | "volume_multiplier"
+    >;
+    session_sets: Array<Pick<SessionSet, "weight_kg" | "reps" | "rpe" | "completed" | "note">>;
+  }>;
+};
+
+type SessionExerciseWithSets = AnalyticsSession["session_exercises"][number];
 
 type CompletedSetRow = {
-  session: SessionWithDetails;
+  session: AnalyticsSession;
   exercise: SessionExerciseWithSets;
-  set: SessionSet;
+  set: Pick<SessionSet, "weight_kg" | "reps" | "rpe" | "completed" | "note">;
 };
 
 export type AnalyticsRange = {
@@ -79,6 +94,12 @@ export type ExerciseSessionHistory = {
 
 export type ExerciseDetailAnalytics = {
   history: ExerciseSessionHistory[];
+  strengthPoints: Array<{
+    date: string;
+    estimatedOneRepMax: number;
+    maxWeight: number;
+    sessionId: string;
+  }>;
   lastPerformedAt: string | null;
   maxWeightSet: SetAchievement | null;
   maxVolumeSession: ExerciseVolumeAchievement | null;
@@ -176,7 +197,7 @@ export function getSingaporeWeekRangeFromKey(weekStart: string): AnalyticsRange 
 }
 
 export function buildDashboardAnalytics(
-  sessions: SessionWithDetails[],
+  sessions: AnalyticsSession[],
   now = new Date(),
   weeklyTarget = 3,
   muscleTargetSettings = DEFAULT_WEEKLY_MUSCLE_TARGET_SETTINGS,
@@ -273,9 +294,24 @@ export function buildExerciseDetailAnalytics(
       .filter((set) => set.completed)
       .map((set) => ({ session, exercise, set })),
   );
+  const strengthPoints = matchingExercises.flatMap(({ session, exercise }) => {
+    const completedSets = exercise.session_sets.filter((set) => set.completed);
+    if (completedSets.length === 0) return [];
+    const estimatedOneRepMax = Math.max(...completedSets.map((set) =>
+      epleyEstimatedOneRepMax(set.weight_kg, set.reps),
+    ));
+    if (estimatedOneRepMax <= 0) return [];
+    return [{
+      date: session.performed_at,
+      estimatedOneRepMax,
+      maxWeight: Math.max(...completedSets.map((set) => set.weight_kg)),
+      sessionId: session.id,
+    }];
+  }).sort((a, b) => time(a.date) - time(b.date));
 
   return {
     history,
+    strengthPoints,
     lastPerformedAt: history[0]?.performedAt ?? null,
     maxWeightSet: chooseRecord(
       rows.map((row) => makeSetAchievement(row, row.set.weight_kg)),
@@ -295,7 +331,7 @@ export function buildExerciseDetailAnalytics(
 }
 
 function buildPersonalRecords(
-  sessions: SessionWithDetails[],
+  sessions: AnalyticsSession[],
   rows: CompletedSetRow[],
 ): DashboardAnalytics["personalRecords"] {
   return {
@@ -441,7 +477,7 @@ function buildStrengthTrends(rows: CompletedSetRow[]): StrengthTrendSeries[] {
 }
 
 function buildWeeklyTrend(
-  sessions: SessionWithDetails[],
+  sessions: AnalyticsSession[],
   currentWeekStart: Date,
   currentWeekEnd: Date,
 ): WeeklyTrendBucket[] {
@@ -468,7 +504,7 @@ function buildWeeklyTrend(
 }
 
 function buildWeeklyTotals(
-  sessions: SessionWithDetails[],
+  sessions: AnalyticsSession[],
   rows: CompletedSetRow[],
 ): WeeklyTotals {
   return {
@@ -544,14 +580,19 @@ function groupVolumeByMuscle(rows: CompletedSetRow[]) {
     .sort((a, b) => b.volume - a.volume);
 }
 
-function buildFatigueWatchList(sessions: SessionWithDetails[]): FatigueEvent[] {
+function buildFatigueWatchList(sessions: AnalyticsSession[]): FatigueEvent[] {
   const events: FatigueEvent[] = [];
 
   for (const session of sessions.slice(0, 10)) {
+    const sessionPain = textMentionsPain(session.notes);
     for (const exercise of session.session_exercises) {
       const completedSets = exercise.session_sets.filter((set) => set.completed);
       const highRpeSets = completedSets.filter((set) => (set.rpe ?? 0) >= 9);
-      const painSet = completedSets.find((set) => PAIN_PATTERN.test(set.note ?? ""));
+      const painNoted = completedSets.length > 0 &&
+        (sessionPain || exerciseMentionsPain({
+          ...exercise,
+          session_sets: completedSets,
+        }));
 
       if (highRpeSets.length >= 2) {
         events.push({
@@ -564,7 +605,7 @@ function buildFatigueWatchList(sessions: SessionWithDetails[]): FatigueEvent[] {
         });
       }
 
-      if (painSet) {
+      if (painNoted) {
         events.push({
           type: "pain",
           exerciseName: exercise.exercise.name,
@@ -581,7 +622,7 @@ function buildFatigueWatchList(sessions: SessionWithDetails[]): FatigueEvent[] {
 }
 
 function countWeeksMeetingTarget(
-  sessions: SessionWithDetails[],
+  sessions: AnalyticsSession[],
   weeklyTarget: number,
 ) {
   const weeks = new Map<number, number>();
@@ -596,7 +637,7 @@ function countWeeksMeetingTarget(
 }
 
 function countWeeklyTargetStreak(
-  sessions: SessionWithDetails[],
+  sessions: AnalyticsSession[],
   currentWeekStart: Date,
   weeklyTarget: number,
 ) {
@@ -622,7 +663,7 @@ function countWeeklyTargetStreak(
   return streak;
 }
 
-function completedSetRows(sessions: SessionWithDetails[]) {
+function completedSetRows(sessions: AnalyticsSession[]) {
   return sessions.flatMap((session) =>
     session.session_exercises.flatMap((exercise) =>
       exercise.session_sets
@@ -645,7 +686,7 @@ function groupRowsByExercise(rows: CompletedSetRow[]) {
 }
 
 function sessionsInRange(
-  sessions: SessionWithDetails[],
+  sessions: AnalyticsSession[],
   start: Date,
   end: Date,
 ) {

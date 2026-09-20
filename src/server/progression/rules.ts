@@ -4,10 +4,12 @@ import type {
   SessionExercise,
   SessionSet,
 } from "@/lib/domain";
+import { textMentionsPain } from "@/lib/pain";
 
 export type ProgressionInput = {
   sessionExercise: SessionExercise & { exercise: Exercise };
   sets: SessionSet[];
+  sessionNotes?: string | null;
   previousPerformance?: ExercisePerformance[];
 };
 
@@ -33,18 +35,19 @@ export type ProgressionRecommendation = {
   };
 };
 
-const PAIN_PATTERN = /\b(pain|hurt|ache|strain|pinch|sharp|injury|sore joint)\b/i;
-
 export function recommendProgression({
   sessionExercise,
   sets,
+  sessionNotes,
   previousPerformance = [],
 }: ProgressionInput): ProgressionRecommendation {
   const completedSets = sets.filter((set) => set.completed);
   const maxRpe = maxNumber(completedSets.map((set) => set.rpe));
   const topWeight = maxNumber(completedSets.map((set) => set.weight_kg));
   const targetWeight = sessionExercise.target_weight_kg ?? topWeight;
-  const painMentioned = sets.some((set) => PAIN_PATTERN.test(set.note ?? ""));
+  const painMentioned = textMentionsPain(sessionNotes) ||
+    textMentionsPain(sessionExercise.notes) ||
+    sets.some((set) => textMentionsPain(set.note));
   const completedEnoughSets = completedSets.length >= sessionExercise.planned_sets;
   const completedTargetReps =
     completedEnoughSets &&

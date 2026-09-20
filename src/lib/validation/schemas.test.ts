@@ -4,7 +4,19 @@ import {
   coachRequestSchema,
   liveSessionSyncSchema,
   startSessionSchema,
+  weeklyWorkoutTargetUpdateSchema,
 } from "@/lib/validation/schemas";
+
+describe("weeklyWorkoutTargetUpdateSchema", () => {
+  it("accepts whole-number workout goals from 1 to 14", () => {
+    expect(weeklyWorkoutTargetUpdateSchema.safeParse({ target: 1 }).success).toBe(true);
+    expect(weeklyWorkoutTargetUpdateSchema.safeParse({ target: 3 }).success).toBe(true);
+    expect(weeklyWorkoutTargetUpdateSchema.safeParse({ target: 14 }).success).toBe(true);
+    for (const target of [0, 15, 2.5, "3"]) {
+      expect(weeklyWorkoutTargetUpdateSchema.safeParse({ target }).success).toBe(false);
+    }
+  });
+});
 
 const exerciseId = "11111111-1111-4111-8111-111111111111";
 const secondExerciseId = "22222222-2222-4222-8222-222222222222";

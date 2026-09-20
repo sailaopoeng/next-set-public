@@ -5,7 +5,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { getPageViewer } from "@/lib/auth/server";
 import { buildExerciseDetailAnalytics } from "@/server/analytics/calculations";
 import {
-  listAllCompletedSessionDetails,
+  listCompletedSessionsForExercise,
   listExercises,
 } from "@/server/db/queries";
 
@@ -23,7 +23,7 @@ export default async function ExerciseDetailPage({
 
   const [exercises, sessions] = await Promise.all([
     listExercises(supabase, ownerId),
-    listAllCompletedSessionDetails(supabase, ownerId),
+    listCompletedSessionsForExercise(supabase, ownerId, id),
   ]);
   const exercise = exercises.find((item) => item.id === id);
 

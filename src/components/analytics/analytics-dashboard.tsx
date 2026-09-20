@@ -278,7 +278,7 @@ function WeeklyAnalysisPanel({
   const report = analysis?.analysis_json;
 
   return (
-    <details className="group rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm dark:border-emerald-900 dark:bg-slate-900" open>
+    <details className="group rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm" open>
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
         <span className="flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
@@ -289,13 +289,13 @@ function WeeklyAnalysisPanel({
         <ChevronDown className="shrink-0 transition-transform group-open:rotate-180" size={20} />
       </summary>
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <p className="text-sm text-slate-600 dark:text-slate-300">
+        <p className="text-sm text-slate-600">
           Selected week plus the previous full week as a baseline.
         </p>
         <div className="flex flex-wrap gap-2">
           <select
             aria-label="Analysis week"
-            className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold dark:border-slate-700 dark:bg-slate-950"
+            className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold"
             onChange={(event) => onSelectWeek(event.target.value)}
             value={selectedWeek}
           >
@@ -318,17 +318,17 @@ function WeeklyAnalysisPanel({
 
       {error ? <p className="mt-3 text-sm font-medium text-rose-700">{error}</p> : null}
       {!report ? (
-        <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-600 dark:bg-slate-950 dark:text-slate-300">
+        <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
           No saved analysis for this week.
         </p>
       ) : (
         <div className="mt-4 space-y-4">
-          <div className="rounded-xl bg-emerald-50 p-3 dark:bg-emerald-950/40">
+          <div className="rounded-xl bg-emerald-50 p-3">
             <p className="font-bold">
               Completed {report.workoutsCompleted} of {report.workoutTarget} sessions.
             </p>
             {report.summary !== `Completed ${report.workoutsCompleted} of ${report.workoutTarget} sessions.` ? (
-              <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">{report.summary}</p>
+              <p className="mt-1 text-sm text-slate-700">{report.summary}</p>
             ) : null}
           </div>
           <ReportList title="Analysis" items={report.observations} />
@@ -336,15 +336,15 @@ function WeeklyAnalysisPanel({
             title="Next week"
             items={report.nextWeekActions.map((action) => action.text)}
           />
-          <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+          <div className="rounded-xl border border-slate-200 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-bold">Deload</h3>
               <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
                 report.deload.confirmedForNextWeek
-                  ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200"
+                  ? "bg-blue-100 text-blue-800"
                   : report.deload.recommended
-                    ? "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200"
-                    : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                    ? "bg-amber-100 text-amber-900"
+                    : "bg-slate-100 text-slate-700"
               }`}>
                 {report.deload.confirmedForSelectedWeek
                   ? "This week confirmed"
@@ -356,7 +356,7 @@ function WeeklyAnalysisPanel({
               </span>
             </div>
             {report.deload.reasons.length > 0 ? (
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600">
                 {report.deload.reasons.map((reason) => <li key={reason}>{reason}</li>)}
               </ul>
             ) : null}
@@ -375,7 +375,7 @@ function WeeklyAnalysisPanel({
               </div>
             ) : null}
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-slate-500">
             {analysis.provider === "gemini" ? "Gemini" : "Rule-based fallback"} · Updated {formatDateTime(analysis.updated_at)}
           </p>
         </div>
@@ -388,7 +388,7 @@ function ReportList({ title, items }: { title: string; items: string[] }) {
   return (
     <div>
       <h3 className="font-bold">{title}</h3>
-      <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-slate-700 dark:text-slate-200">
+      <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-slate-700">
         {items.map((item) => <li key={item}>{item}</li>)}
       </ul>
     </div>
@@ -408,8 +408,8 @@ function DeloadButton({
     <button
       className={`min-h-10 rounded-full border px-3.5 text-xs font-bold ${
         active
-          ? "border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200"
-          : "border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          ? "border-blue-300 bg-blue-50 text-blue-800"
+          : "border-slate-300 text-slate-700 hover:bg-slate-50"
       }`}
       onClick={onClick}
       type="button"

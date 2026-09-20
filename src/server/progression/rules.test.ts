@@ -78,6 +78,27 @@ describe("progression rules", () => {
     expect(result.decision).toBe("watch_pain");
   });
 
+  it("blocks an increase for pain in session or exercise notes", () => {
+    const sets = [set(8, 7), set(8, 7), set(8, 7)];
+    expect(recommendProgression({
+      sessionExercise,
+      sets,
+      sessionNotes: "sharp shoulder pain",
+    }).decision).toBe("watch_pain");
+    expect(recommendProgression({
+      sessionExercise: { ...sessionExercise, notes: "knee injury" },
+      sets,
+    }).decision).toBe("watch_pain");
+  });
+
+  it("does not mistake unrelated notes for pain", () => {
+    expect(recommendProgression({
+      sessionExercise: { ...sessionExercise, notes: "pinch collar" },
+      sets: [set(8, 7), set(8, 7), set(8, 7)],
+      sessionNotes: "sore from yesterday",
+    }).decision).toBe("increase");
+  });
+
   it("adjusts reps when targets were missed", () => {
     const result = recommendProgression({
       sessionExercise,
