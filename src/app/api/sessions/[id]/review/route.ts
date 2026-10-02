@@ -1,3 +1,4 @@
+import { isUuid, notFoundResponse } from "@/lib/api";
 import { authErrorResponse, requireAllowedUser } from "@/lib/auth/server";
 import { reviewAndSaveSession } from "@/server/ai/review";
 import { getSessionDetails } from "@/server/db/queries";
@@ -14,6 +15,7 @@ export async function GET(
   try {
     const { id } = await context.params;
     const { supabase, user } = await requireAllowedUser();
+    if (!isUuid(id)) return notFoundResponse();
     const { data, error } = await supabase
       .from("ai_reviews")
       .select("*, ai_exercise_decisions(*)")
@@ -35,6 +37,7 @@ export async function POST(
   try {
     const { id } = await context.params;
     const { supabase, user } = await requireAllowedUser();
+    if (!isUuid(id)) return notFoundResponse();
     after(async () => {
       try {
         const session = await getSessionDetails(supabase, user.id, id);

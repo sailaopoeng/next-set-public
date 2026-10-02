@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { ExerciseDetail } from "@/components/exercises/exercise-detail";
 import { AppShell } from "@/components/layout/app-shell";
+import { isUuid } from "@/lib/api";
 import { getPageViewer } from "@/lib/auth/server";
 import { buildExerciseDetailAnalytics } from "@/server/analytics/calculations";
 import {
@@ -17,6 +18,7 @@ export default async function ExerciseDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  if (!isUuid(id)) notFound();
   const { supabase, ownerId, isOwner } = await getPageViewer();
 
   if (!ownerId) notFound();

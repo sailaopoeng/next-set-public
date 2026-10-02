@@ -1,3 +1,4 @@
+import { isUuid, notFoundResponse, readJsonBody } from "@/lib/api";
 import { authErrorResponse, requireAllowedUser } from "@/lib/auth/server";
 import { exerciseReplacementApplySchema } from "@/lib/validation/schemas";
 import { removeSessionExercise } from "@/server/db/queries";
@@ -13,7 +14,8 @@ export async function PATCH(
   try {
     const { id, sessionExerciseId } = await context.params;
     const { supabase, user } = await requireAllowedUser();
-    const parsed = exerciseReplacementApplySchema.safeParse(await request.json());
+    if (!isUuid(id) || !isUuid(sessionExerciseId)) return notFoundResponse();
+    const parsed = exerciseReplacementApplySchema.safeParse(await readJsonBody(request));
 
     if (!parsed.success) {
       return Response.json(
@@ -44,6 +46,7 @@ export async function DELETE(
   try {
     const { id, sessionExerciseId } = await context.params;
     const { supabase, user } = await requireAllowedUser();
+    if (!isUuid(id) || !isUuid(sessionExerciseId)) return notFoundResponse();
 
     return Response.json({
       session: await removeSessionExercise(

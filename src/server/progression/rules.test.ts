@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { Exercise, SessionExercise, SessionSet } from "@/lib/domain";
 import {
+  buildExercisePerformanceHistory,
   epleyEstimatedOneRepMax,
   recommendProgression,
+  resolveWorkingWeight,
 } from "@/server/progression/rules";
 import { sessionSetVolume } from "@/lib/workout-metrics";
 
@@ -35,12 +37,17 @@ const sessionExercise: SessionExercise & { exercise: Exercise } = {
   exercise,
 };
 
-function set(reps: number, rpe: number, note: string | null = null): SessionSet {
+function set(
+  reps: number,
+  rpe: number,
+  note: string | null = null,
+  weightKg = 60,
+): SessionSet {
   return {
     id: crypto.randomUUID(),
     session_exercise_id: sessionExercise.id,
     set_number: 1,
-    weight_kg: 60,
+    weight_kg: weightKg,
     reps,
     rpe,
     completed: true,
@@ -116,5 +123,109 @@ describe("progression rules", () => {
     expect(sessionSetVolume({ weight_kg: 15, reps: 10 }, 1)).toBe(150);
     expect(sessionSetVolume({ weight_kg: 15, reps: 10 }, 2)).toBe(300);
     expect(epleyEstimatedOneRepMax(15, 10)).toBe(20);
+  });
+
+  it("progresses from the weight actually lifted when it was below target", () => {
+    const result = recommendProgression({
+      sessionExercise,
+      sets: [set(8, 7, null, 50), set(8, 7, null, 50), set(8, 7, null, 50)],
+    });
+
+    expect(result.decision).toBe("increase");
+    expect(result.suggestedTarget.weightKg).toBe(52.5);
+  });
+
+  it("does not hold a stay or missed-rep target above the weight lifted", () => {
+    expect(recommendProgression({
+      sessionExercise,
+      sets: [set(8, 9, null, 50), set(8, 9, null, 50), set(8, 9, null, 50)],
+    }).suggestedTarget.weightKg).toBe(50);
+    expect(recommendProgression({
+      sessionExercise,
+      sets: [set(8, 8, null, 50), set(5, 8, null, 50), set(4, 8, null, 50)],
+    }).suggestedTarget.weightKg).toBe(50);
+  });
+
+  it("progresses from the weight lifted when straight sets beat the target", () => {
+    const result = recommendProgression({
+      sessionExercise,
+      sets: [set(8, 7, null, 70), set(8, 7, null, 70), set(8, 7, null, 70)],
+    });
+
+    expect(result.suggestedTarget.weightKg).toBe(72.5);
+  });
+
+  it("uses logged weights for exercises added mid-session with a 0kg target", () => {
+    const added = { ...sessionExercise, target_weight_kg: 0 };
+
+    const increase = recommendProgression({
+      sessionExercise: added,
+      sets: [set(8, 7), set(8, 7), set(8, 7)],
+    });
+    expect(increase.decision).toBe("increase");
+    expect(increase.suggestedTarget.weightKg).toBe(62.5);
+
+    const stay = recommendProgression({
+      sessionExercise: added,
+      sets: [set(8, 9), set(8, 9), set(8, 9)],
+    });
+    expect(stay.decision).toBe("stay");
+    expect(stay.suggestedTarget.weightKg).toBe(60);
+  });
+
+  it("does not add load to an unloaded movement", () => {
+    const result = recommendProgression({
+      sessionExercise: { ...sessionExercise, target_weight_kg: 0 },
+      sets: [set(8, 7, null, 0), set(8, 7, null, 0), set(8, 7, null, 0)],
+    });
+
+    expect(result.decision).toBe("increase");
+    expect(result.suggestedTarget.weightKg).toBe(0);
+  });
+
+  it("resolves working weight conservatively", () => {
+    const weights = (...values: number[]) => values.map((weight_kg) => ({ weight_kg }));
+
+    expect(resolveWorkingWeight(null, weights(40, 45))).toBe(40);
+    expect(resolveWorkingWeight(60, weights(50, 55))).toBe(55);
+    expect(resolveWorkingWeight(60, weights(60, 65))).toBe(60);
+    expect(resolveWorkingWeight(70, weights(60, 65, 70))).toBe(70);
+    expect(resolveWorkingWeight(60, [])).toBe(60);
+    expect(resolveWorkingWeight(0, weights(0, 0))).toBe(0);
+  });
+
+  it("holds load after a two-session performance drop", () => {
+    const sessionFor = (id: string, performedAt: string, weightKg: number, reps: number) => ({
+      id,
+      performed_at: performedAt,
+      session_exercises: [{
+        exercise_id: exercise.id,
+        exercise,
+        session_sets: [set(reps, 7, null, weightKg), set(reps, 7, null, weightKg), set(reps, 7, null, weightKg)],
+      }],
+    });
+    const history = buildExercisePerformanceHistory(
+      [
+        sessionFor("older", "2026-09-01T10:00:00Z", 60, 8),
+        sessionFor("latest", "2026-09-04T10:00:00Z", 57.5, 8),
+        sessionFor("future", "2026-09-08T10:00:00Z", 80, 8),
+      ],
+      exercise.id,
+      "2026-09-04T10:00:00Z",
+    );
+
+    expect(history.map((entry) => entry.finishedAt)).toEqual([
+      "2026-09-04T10:00:00Z",
+      "2026-09-01T10:00:00Z",
+    ]);
+
+    const result = recommendProgression({
+      sessionExercise: { ...sessionExercise, target_weight_kg: 57.5 },
+      sets: [set(8, 7, null, 57.5), set(8, 7, null, 57.5), set(8, 7, null, 57.5)],
+      previousPerformance: history,
+    });
+
+    expect(result.decision).toBe("stay");
+    expect(result.suggestedTarget.weightKg).toBe(57.5);
   });
 });

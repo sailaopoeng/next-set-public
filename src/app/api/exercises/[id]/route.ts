@@ -1,4 +1,4 @@
-import { jsonError } from "@/lib/api";
+import { isUuid, jsonError, notFoundResponse, readJsonBody } from "@/lib/api";
 import { authErrorResponse, requireAllowedUser } from "@/lib/auth/server";
 import { exerciseSettingsUpdateSchema } from "@/lib/validation/schemas";
 
@@ -12,8 +12,9 @@ export async function PATCH(
   try {
     const { id } = await context.params;
     const { supabase, user } = await requireAllowedUser();
+    if (!isUuid(id)) return notFoundResponse();
     const parsed = exerciseSettingsUpdateSchema.safeParse(
-      await request.json(),
+      await readJsonBody(request),
     );
 
     if (!parsed.success) {

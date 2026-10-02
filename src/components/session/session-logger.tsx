@@ -147,7 +147,6 @@ export function SessionLogger({
     new Set(Object.keys(initialPreviousByExerciseId)),
   );
   const [setPrefillRevision, setSetPrefillRevision] = useState(0);
-  const [elapsedNow, setElapsedNow] = useState(() => Date.now());
   const [isExitOpen, setIsExitOpen] = useState(false);
   const [expandedCompletedExerciseIds, setExpandedCompletedExerciseIds] =
     useState<ReadonlySet<string>>(() => new Set());
@@ -166,13 +165,7 @@ export function SessionLogger({
     filteredExercises[0]?.id ??
     "";
 
-  const sessionStats = useMemo(
-    () => getSessionStats(draft, elapsedNow),
-    [draft, elapsedNow],
-  );
-  const restTimerRemainingSeconds = restTimer
-    ? remainingRestSeconds(restTimer, elapsedNow)
-    : 0;
+  const sessionStats = useMemo(() => getSessionStats(draft), [draft]);
   const incompleteSessionSummary = useMemo(
     () => getIncompleteSessionSummary(draft.session_exercises),
     [draft.session_exercises],
@@ -294,12 +287,6 @@ export function SessionLogger({
         clearTimeout(exerciseAddedTimeoutRef.current);
       }
     };
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(() => setElapsedNow(Date.now()), 1000);
-
-    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -545,10 +532,7 @@ export function SessionLogger({
                 label="Sets"
                 value={`${sessionStats.completedSets}/${sessionStats.preparedSets}`}
               />
-              <SessionStat
-                label="Time"
-                value={formatDuration(sessionStats.elapsedSeconds)}
-              />
+              <ElapsedSessionStat startedAt={draft.started_at} />
               <SessionStat
                 label="Exes"
                 value={String(sessionStats.exerciseCount)}
@@ -895,8 +879,8 @@ export function SessionLogger({
         </p>
         {restTimer?.visible ? (
           <RestTimerBanner
+            endAt={restTimer.endAt}
             exerciseName={restTimer.exerciseName}
-            remainingSeconds={restTimerRemainingSeconds}
             totalSeconds={restTimer.seconds}
             onDismiss={() =>
               setRestTimer((timer) =>
@@ -1910,7 +1894,31 @@ function SessionStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function getSessionStats(session: SessionWithDetails, now: number) {
+// Ticking clocks live in small leaf components so the whole logger does not
+// re-render every second while sets are being typed.
+function useNow(intervalMs: number) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(interval);
+  }, [intervalMs]);
+
+  return now;
+}
+
+function ElapsedSessionStat({ startedAt }: { startedAt: string }) {
+  const now = useNow(1000);
+  const startedAtMs = new Date(startedAt).getTime();
+  const elapsedSeconds = Math.max(
+    0,
+    Math.floor((now - (Number.isFinite(startedAtMs) ? startedAtMs : now)) / 1000),
+  );
+
+  return <SessionStat label="Time" value={formatDuration(elapsedSeconds)} />;
+}
+
+function getSessionStats(session: SessionWithDetails) {
   const sets = session.session_exercises.flatMap((exercise) =>
     exercise.session_sets,
   );
@@ -1920,15 +1928,10 @@ function getSessionStats(session: SessionWithDetails, now: number) {
     0,
   );
   const totalVolumeKg = sessionVolume(session);
-  const startedAt = new Date(session.started_at).getTime();
 
   return {
     completedSets: completedSets.length,
     exerciseCount: session.session_exercises.length,
-    elapsedSeconds: Math.max(
-      0,
-      Math.floor((now - (Number.isFinite(startedAt) ? startedAt : now)) / 1000),
-    ),
     preparedSets,
     totalVolumeKg,
   };
@@ -2146,18 +2149,20 @@ function SetRow({
 }
 
 function RestTimerBanner({
+  endAt,
   exerciseName,
-  remainingSeconds,
   totalSeconds,
   onDismiss,
   onSkip,
 }: {
+  endAt: number;
   exerciseName: string;
-  remainingSeconds: number;
   totalSeconds: number;
   onDismiss: () => void;
   onSkip: () => void;
 }) {
+  const now = useNow(250);
+  const remainingSeconds = remainingRestSeconds({ endAt }, now);
   const progress =
     totalSeconds > 0
       ? Math.max(0, Math.min(100, (remainingSeconds / totalSeconds) * 100))

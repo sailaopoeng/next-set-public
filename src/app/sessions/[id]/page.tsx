@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { SessionLogger } from "@/components/session/session-logger";
+import { isUuid } from "@/lib/api";
 import { getPageViewer } from "@/lib/auth/server";
 import {
   findSessionDetails,
@@ -31,6 +32,7 @@ export default async function SessionPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  if (!isUuid(id)) notFound();
   const { supabase, ownerId, isOwner } = await getPageViewer();
 
   if (!ownerId) notFound();

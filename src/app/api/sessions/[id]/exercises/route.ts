@@ -1,4 +1,4 @@
-import { jsonError } from "@/lib/api";
+import { isUuid, jsonError, notFoundResponse, readJsonBody } from "@/lib/api";
 import { authErrorResponse, requireAllowedUser } from "@/lib/auth/server";
 import {
   exerciseOrderSchema,
@@ -21,7 +21,8 @@ export async function POST(
   try {
     const { id } = await context.params;
     const { supabase, user } = await requireAllowedUser();
-    const parsed = sessionExerciseAddSchema.safeParse(await request.json());
+    if (!isUuid(id)) return notFoundResponse();
+    const parsed = sessionExerciseAddSchema.safeParse(await readJsonBody(request));
 
     if (!parsed.success) {
       return jsonError(400, "BAD_EXERCISE", parsed.error.message);
@@ -49,7 +50,8 @@ export async function PATCH(
   try {
     const { id } = await context.params;
     const { supabase, user } = await requireAllowedUser();
-    const body = await request.json();
+    if (!isUuid(id)) return notFoundResponse();
+    const body = await readJsonBody(request);
     const supersetParsed = sessionSupersetUpdateSchema.safeParse(body);
 
     if (supersetParsed.success) {

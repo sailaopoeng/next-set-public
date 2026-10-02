@@ -1,15 +1,16 @@
-import { jsonError } from "@/lib/api";
+import { jsonError, readJsonBody } from "@/lib/api";
 import { authErrorResponse, requireAllowedUser } from "@/lib/auth/server";
 import { coachRequestSchema } from "@/lib/validation/schemas";
 import { generateCoachWorkout } from "@/server/ai/coach";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   try {
     const { supabase, user } = await requireAllowedUser();
-    const parsed = coachRequestSchema.safeParse(await request.json());
+    const parsed = coachRequestSchema.safeParse(await readJsonBody(request));
 
     if (!parsed.success) {
       return jsonError(400, "BAD_COACH_REQUEST", parsed.error.message);

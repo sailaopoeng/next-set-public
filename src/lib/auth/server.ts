@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 
-import { jsonError } from "@/lib/api";
+import { escapeLikePattern, jsonError } from "@/lib/api";
 import { ALLOWED_EMAIL, isAllowedEmail } from "@/lib/auth/allowed-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { canCreateSupabaseClient, createClient } from "@/lib/supabase/server";
@@ -73,7 +73,7 @@ export async function getPageViewer(): Promise<PageViewerContext> {
   const { data, error } = await supabase
     .from("profiles")
     .select("id")
-    .ilike("email", ALLOWED_EMAIL)
+    .ilike("email", escapeLikePattern(ALLOWED_EMAIL))
     .limit(1)
     .maybeSingle();
 

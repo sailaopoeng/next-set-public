@@ -1,4 +1,4 @@
-import { jsonError } from "@/lib/api";
+import { jsonError, readJsonBody } from "@/lib/api";
 import { authErrorResponse, requireAllowedUser } from "@/lib/auth/server";
 import { deloadWeekRequestSchema } from "@/lib/validation/schemas";
 import {
@@ -21,7 +21,7 @@ export async function DELETE(request: Request) {
 async function mutateDeloadWeek(request: Request, active: boolean) {
   try {
     const { supabase, user } = await requireAllowedUser();
-    const parsed = deloadWeekRequestSchema.safeParse(await request.json());
+    const parsed = deloadWeekRequestSchema.safeParse(await readJsonBody(request));
     if (!parsed.success) {
       return jsonError(400, "BAD_DELOAD_WEEK", parsed.error.message);
     }

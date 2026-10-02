@@ -114,6 +114,35 @@ describe("analytics calculations", () => {
     expect(analytics.personalRecords.highestEstimatedOneRepMax?.value).toBe(20);
   });
 
+  it("keeps headline load records on main lifts", () => {
+    const workout = session("2026-05-24T10:00:00+08:00");
+    const legPress = {
+      ...workout.session_exercises[0],
+      id: crypto.randomUUID(),
+      exercise_id: "exercise-2",
+      exercise_order: 2,
+      exercise: { ...exercise, id: "exercise-2", name: "Leg Press", is_main_lift: false },
+      session_sets: [{
+        ...workout.session_exercises[0].session_sets[0],
+        id: crypto.randomUUID(),
+        weight_kg: 200,
+        reps: 10,
+      }],
+    };
+    workout.session_exercises.push(legPress);
+
+    const analytics = buildDashboardAnalytics(
+      [workout],
+      new Date("2026-05-25T10:00:00+08:00"),
+    );
+
+    expect(analytics.personalRecords.heaviestCompletedSet).toMatchObject({
+      value: 100,
+      exerciseName: "Back Squat",
+    });
+    expect(analytics.personalRecords.highestWorkoutVolume?.value).toBe(2500);
+  });
+
   it("uses performed_at for Sunday Singapore week membership", () => {
     const analytics = buildDashboardAnalytics(
       [

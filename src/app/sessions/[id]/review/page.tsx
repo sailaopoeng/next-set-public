@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { ReviewPanel } from "@/components/ai/review-panel";
 import { ReadOnlySession } from "@/components/session/read-only-session";
+import { isUuid } from "@/lib/api";
 import { getPageViewer } from "@/lib/auth/server";
 import { findSessionDetails } from "@/server/db/queries";
 
@@ -14,6 +15,7 @@ export default async function ReviewPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  if (!isUuid(id)) notFound();
   const { supabase, ownerId, isOwner } = await getPageViewer();
 
   if (!ownerId) notFound();

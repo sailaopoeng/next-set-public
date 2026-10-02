@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { jsonError } from "@/lib/api";
+import { isUuid, jsonError, notFoundResponse } from "@/lib/api";
 import { authErrorResponse, requireAllowedUser } from "@/lib/auth/server";
 import { findLatestCompletedSetsForExercise } from "@/server/db/queries";
 
@@ -32,6 +32,7 @@ export async function GET(
     }
 
     const { supabase, user } = await requireAllowedUser();
+    if (!isUuid(id)) return notFoundResponse();
     const previous = await findLatestCompletedSetsForExercise(
       supabase,
       user.id,

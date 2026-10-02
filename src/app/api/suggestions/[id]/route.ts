@@ -1,4 +1,4 @@
-import { jsonError } from "@/lib/api";
+import { isJsonObject, isUuid, jsonError, notFoundResponse, readJsonBody } from "@/lib/api";
 import { authErrorResponse, requireAllowedUser } from "@/lib/auth/server";
 import { exerciseOrderSchema } from "@/lib/validation/schemas";
 import { reorderSuggestionExercises } from "@/server/db/queries";
@@ -13,7 +13,14 @@ export async function PATCH(
   try {
     const { id } = await context.params;
     const { supabase, user } = await requireAllowedUser();
-    const body = (await request.json()) as {
+    if (!isUuid(id)) return notFoundResponse();
+    const rawBody = await readJsonBody(request);
+
+    if (!isJsonObject(rawBody)) {
+      return jsonError(400, "BAD_SUGGESTION_UPDATE", "Suggestion update payload is invalid.");
+    }
+
+    const body = rawBody as {
       status?: "accepted" | "draft";
       name?: string;
       rationale?: string | null;
@@ -79,6 +86,7 @@ export async function DELETE(
   try {
     const { id } = await context.params;
     const { supabase, user } = await requireAllowedUser();
+    if (!isUuid(id)) return notFoundResponse();
 
     const { error } = await supabase
       .from("workout_suggestions")

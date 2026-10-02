@@ -22,10 +22,11 @@ import {
   saveWeeklyAnalysis,
 } from "@/server/db/queries";
 import {
+  buildExercisePerformanceHistory,
   epleyEstimatedOneRepMax,
   recommendProgression,
 } from "@/server/progression/rules";
-import { GEMINI_BASE_URL, getGeminiModel } from "@/server/ai/models";
+import { GEMINI_BASE_URL, GEMINI_TIMEOUT_MS, getGeminiModel } from "@/server/ai/models";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -254,6 +255,11 @@ function buildNormalActions(
         sessionExercise: exercise,
         sets: exercise.session_sets,
         sessionNotes: session.notes,
+        previousPerformance: buildExercisePerformanceHistory(
+          sessions,
+          exercise.exercise_id,
+          session.performed_at,
+        ),
       });
       actions.push({
         id: `exercise:${exercise.exercise_id}`,
@@ -385,6 +391,7 @@ async function requestWeeklyAiSummary(
         contents: [{ role: "user", parts: [{ text: buildPrompt(facts, sessions) }] }],
         generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
       }),
+      signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
     },
   );
   if (!response.ok) throw new Error(`Gemini weekly analysis failed: ${response.status}`);

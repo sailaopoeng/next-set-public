@@ -1,4 +1,4 @@
-import { jsonError } from "@/lib/api";
+import { isUuid, jsonError, notFoundResponse, readJsonBody } from "@/lib/api";
 import { authErrorResponse, requireAllowedUser } from "@/lib/auth/server";
 import { sessionMetadataUpdateSchema } from "@/lib/validation/schemas";
 import { updateSessionMetadata } from "@/server/db/queries";
@@ -13,7 +13,8 @@ export async function PATCH(
   try {
     const { id } = await context.params;
     const { supabase, user } = await requireAllowedUser();
-    const parsed = sessionMetadataUpdateSchema.safeParse(await request.json());
+    if (!isUuid(id)) return notFoundResponse();
+    const parsed = sessionMetadataUpdateSchema.safeParse(await readJsonBody(request));
 
     if (!parsed.success) {
       return jsonError(400, "BAD_SESSION_UPDATE", parsed.error.message);

@@ -23,8 +23,9 @@ import {
   getProfilePreferences,
   listTemplates,
 } from "@/server/db/queries";
-import { GEMINI_BASE_URL, getGeminiModel } from "@/server/ai/models";
+import { GEMINI_BASE_URL, GEMINI_TIMEOUT_MS, getGeminiModel } from "@/server/ai/models";
 import {
+  buildExercisePerformanceHistory,
   recommendProgression,
   type ProgressionRecommendation,
 } from "@/server/progression/rules";
@@ -144,6 +145,11 @@ export function buildFallbackReview(
       sessionExercise: exercise,
       sets: exercise.session_sets,
       sessionNotes: session.notes,
+      previousPerformance: buildExercisePerformanceHistory(
+        [session, ...recentSessions],
+        exercise.exercise_id,
+        session.performed_at,
+      ),
     }),
   );
   const context =
@@ -206,7 +212,7 @@ async function requestGeminiReview(model: string, apiKey: string, promptText: st
         "Content-Type": "application/json",
         "x-goog-api-key": apiKey,
       },
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
       body: JSON.stringify({
         contents: [
           {
@@ -616,15 +622,35 @@ function buildTemplateTarget(
         sessionExercise: previousExercise,
         sets: previousExercise.session_sets,
         sessionNotes: previousSession?.notes,
+        previousPerformance: buildExercisePerformanceHistory(
+          history,
+          templateExercise.exercise_id,
+          previousSession?.performed_at,
+        ),
       })
     : null;
+
+  // A load progressed for one rep range does not transfer to a different one
+  // (e.g. a 3x5 weight must not become the target for a 3x10 slot).
+  const comparableRepRange =
+    previousExercise !== undefined &&
+    previousExercise.target_reps_min <= templateExercise.target_reps_max &&
+    templateExercise.target_reps_min <= previousExercise.target_reps_max;
+  // Pain or a reduction still caps the absolute load whatever the rep range.
+  const blocksLoad =
+    progression?.decision === "watch_pain" || progression?.decision === "reduce";
+  const progressedWeight = progression?.suggestedTarget.weightKg ?? null;
+  const weightKg = comparableRepRange
+    ? progressedWeight ?? templateExercise.target_weight_kg
+    : blocksLoad && progressedWeight !== null && templateExercise.target_weight_kg !== null
+      ? Math.min(progressedWeight, templateExercise.target_weight_kg)
+      : templateExercise.target_weight_kg;
 
   return {
     sets: templateExercise.target_sets,
     repsMin: templateExercise.target_reps_min,
     repsMax: templateExercise.target_reps_max,
-    weightKg:
-      progression?.suggestedTarget.weightKg ?? templateExercise.target_weight_kg,
+    weightKg,
     restSeconds: templateExercise.rest_seconds,
     notes: combineNotes(
       templateExercise.notes,
@@ -879,6 +905,11 @@ function applySafeSuggestionWeight(
     sessionExercise: previousExercise,
     sets: previousExercise.session_sets,
     sessionNotes: previousSession?.notes,
+    previousPerformance: buildExercisePerformanceHistory(
+      context.history,
+      exercise.id,
+      previousSession?.performed_at,
+    ),
   }).suggestedTarget;
 
   if (

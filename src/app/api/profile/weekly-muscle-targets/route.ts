@@ -1,4 +1,4 @@
-import { jsonError } from "@/lib/api";
+import { jsonError, readJsonBody } from "@/lib/api";
 import { authErrorResponse, requireAllowedUser } from "@/lib/auth/server";
 import { weeklyMuscleTargetsUpdateSchema } from "@/lib/validation/schemas";
 import { updateWeeklyMuscleTargets } from "@/server/db/queries";
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function PATCH(request: Request) {
   try {
     const { supabase, user } = await requireAllowedUser();
-    const parsed = weeklyMuscleTargetsUpdateSchema.safeParse(await request.json());
+    const parsed = weeklyMuscleTargetsUpdateSchema.safeParse(await readJsonBody(request));
     if (!parsed.success) {
       return jsonError(400, "BAD_WEEKLY_TARGETS", parsed.error.message);
     }

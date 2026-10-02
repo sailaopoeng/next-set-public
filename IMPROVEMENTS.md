@@ -33,6 +33,11 @@ Do **one ID per session** unless a brief says it may be paired. Do not start
 | A4 | P3 | later | Bodyweight / assisted load modeling |
 | E2 | P3 | later | Playwright E2E for start → log set → finish → sticky header |
 | E3 | P3 | later | Move the working copy off cloud-synced storage |
+| R5 | P1 | done | Progression bases next load on weight actually lifted (fixes 0kg/2.5kg targets for mid-session exercises) |
+| R6 | P1 | done | Wire two-session performance-drop history into every progression caller |
+| R7 | P1 | done | Template targets only carry a progressed load across comparable rep ranges |
+| R8 | P2 | done | Gemini timeouts for coach/weekly analysis; malformed JSON → 400; non-uuid ids → 404 |
+| R9 | P2 | done | Service worker offline page fallback + bounded caches; logger clock re-render isolation |
 | X1 | — | skip | Guest read-only mode is intentional |
 | X2 | — | later | Data export / backup (not a priority) |
 

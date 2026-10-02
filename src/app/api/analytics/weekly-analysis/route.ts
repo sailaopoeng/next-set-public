@@ -1,15 +1,16 @@
-import { jsonError } from "@/lib/api";
+import { jsonError, readJsonBody } from "@/lib/api";
 import { authErrorResponse, requireAllowedUser } from "@/lib/auth/server";
 import { weeklyAnalysisRequestSchema } from "@/lib/validation/schemas";
 import { generateAndSaveWeeklyAnalysis } from "@/server/ai/weekly-analysis";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   try {
     const { supabase, user } = await requireAllowedUser();
-    const parsed = weeklyAnalysisRequestSchema.safeParse(await request.json());
+    const parsed = weeklyAnalysisRequestSchema.safeParse(await readJsonBody(request));
     if (!parsed.success) {
       return jsonError(400, "BAD_WEEKLY_ANALYSIS_REQUEST", parsed.error.message);
     }

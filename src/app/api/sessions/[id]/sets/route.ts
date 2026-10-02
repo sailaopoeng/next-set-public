@@ -1,4 +1,4 @@
-import { jsonError } from "@/lib/api";
+import { isUuid, jsonError, notFoundResponse, readJsonBody } from "@/lib/api";
 import { authErrorResponse, requireAllowedUser } from "@/lib/auth/server";
 import { sessionSetAddSchema, setUpsertSchema } from "@/lib/validation/schemas";
 import {
@@ -18,7 +18,8 @@ export async function PUT(
   try {
     const { id } = await context.params;
     const { supabase, user } = await requireAllowedUser();
-    const parsed = setUpsertSchema.safeParse(await request.json());
+    if (!isUuid(id)) return notFoundResponse();
+    const parsed = setUpsertSchema.safeParse(await readJsonBody(request));
 
     if (!parsed.success) {
       return jsonError(400, "BAD_SETS", parsed.error.message);
@@ -39,7 +40,8 @@ export async function POST(
   try {
     const { id } = await context.params;
     const { supabase, user } = await requireAllowedUser();
-    const parsed = sessionSetAddSchema.safeParse(await request.json());
+    if (!isUuid(id)) return notFoundResponse();
+    const parsed = sessionSetAddSchema.safeParse(await readJsonBody(request));
 
     if (!parsed.success) {
       return jsonError(400, "BAD_SET", parsed.error.message);
@@ -67,6 +69,7 @@ export async function DELETE(
   try {
     const { id } = await context.params;
     const { supabase, user } = await requireAllowedUser();
+    if (!isUuid(id)) return notFoundResponse();
     const url = new URL(request.url);
     const setId = url.searchParams.get("setId");
 

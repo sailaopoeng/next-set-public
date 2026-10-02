@@ -14,7 +14,11 @@ import {
   listExercises,
   listTemplates,
 } from "@/server/db/queries";
-import { recommendProgression } from "@/server/progression/rules";
+import {
+  buildExercisePerformanceHistory,
+  type ExercisePerformance,
+  recommendProgression,
+} from "@/server/progression/rules";
 import { GEMINI_BASE_URL, getGeminiModel } from "@/server/ai/models";
 
 const AI_TIMEOUT_MS = 1200;
@@ -138,7 +142,16 @@ function scoreCandidate(
 
   return {
     exercise,
-    target: buildReplacementTarget(exercise, currentTarget, templateMatch, previous, previousSession?.notes),
+    target: buildReplacementTarget(
+      exercise,
+      currentTarget,
+      templateMatch,
+      previous,
+      previousSession?.notes,
+      previousSession
+        ? buildExercisePerformanceHistory(history, exercise.id, previousSession.performed_at)
+        : [],
+    ),
     reasonTags,
     score,
   };
@@ -150,12 +163,14 @@ function buildReplacementTarget(
   templateMatch: (TemplateExercise & { exercise: Exercise }) | undefined,
   previous: SessionWithDetails["session_exercises"][number] | undefined,
   sessionNotes?: string | null,
+  previousPerformance: ExercisePerformance[] = [],
 ): SuggestedTarget {
   if (previous) {
     return recommendProgression({
       sessionExercise: previous,
       sets: previous.session_sets,
       sessionNotes,
+      previousPerformance,
     }).suggestedTarget;
   }
 
