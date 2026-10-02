@@ -1,4 +1,4 @@
-import { jsonError } from "@/lib/api";
+import { jsonError, readJsonBody } from "@/lib/api";
 import { authErrorResponse, requireAllowedUser } from "@/lib/auth/server";
 import { exerciseUpsertSchema } from "@/lib/validation/schemas";
 import { listExercises } from "@/server/db/queries";
@@ -18,7 +18,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const { supabase, user } = await requireAllowedUser();
-    const parsed = exerciseUpsertSchema.safeParse(await request.json());
+    const parsed = exerciseUpsertSchema.safeParse(await readJsonBody(request));
 
     if (!parsed.success) {
       return jsonError(400, "BAD_EXERCISE", parsed.error.message);

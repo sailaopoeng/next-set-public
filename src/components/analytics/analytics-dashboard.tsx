@@ -223,11 +223,12 @@ export function AnalyticsDashboard({
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="text-base font-bold">Personal records</h2>
           <p className="mt-1 text-sm text-slate-600">
-            All completed workout history. Equal records show the most recent hit.
+            All completed workout history. Set and 1RM records use main lifts. Equal
+            records show the most recent hit.
           </p>
           <div className="mt-3 grid gap-2">
             <SetRecordCard
-              label="Heaviest completed set"
+              label="Heaviest main-lift set"
               record={analytics.personalRecords.heaviestCompletedSet}
             />
             <SetRecordCard

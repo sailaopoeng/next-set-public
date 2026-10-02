@@ -206,6 +206,34 @@ describe("AI coach", () => {
     expect(result.notes.join(" ")).toContain("kept conservative");
   });
 
+  it("caps from logged weights when the exercise was added mid-session with a 0kg target", () => {
+    const addedSession = {
+      ...session,
+      session_exercises: session.session_exercises.map((exercise) => ({
+        ...exercise,
+        target_weight_kg: 0,
+        session_sets: exercise.session_sets.map((set) => ({ ...set, rpe: 8 })),
+      })),
+    };
+    const result = applyConservativeCoachSafety(
+      {
+        exerciseName: "Bench Press",
+        primaryMuscleGroup: "chest",
+        equipment: "barbell",
+        notes: null,
+        sets: [
+          { setNumber: 1, reps: 8, weightKg: 50, restSeconds: 90, notes: null },
+          { setNumber: 2, reps: 8, weightKg: 60, restSeconds: 90, notes: null },
+        ],
+      },
+      bench,
+      [addedSession],
+      "my chest is sore",
+    );
+
+    expect(result.exercise.sets.map((set) => set.weightKg)).toEqual([50, 50]);
+  });
+
   it("annotates matched and unmatched coach workout rows", () => {
     const workout = annotateCoachWorkout(
       {

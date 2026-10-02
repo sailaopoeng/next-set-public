@@ -180,6 +180,26 @@ describe("AI fallback review", () => {
     expect(review.nextSessionSuggestion!.exercises[0].target.weightKg).toBe(30);
   });
 
+  it("carries a progressed load into a template only for a comparable rep range", () => {
+    const templateId = "66666666-6666-4666-8666-666666666666";
+    const highRepTemplate = makeTemplate(templateId, "Workout B", 2, exercise);
+    const lowRepTemplate = makeTemplate(templateId, "Workout B", 2, exercise);
+    lowRepTemplate.workout_template_exercises[0] = {
+      ...lowRepTemplate.workout_template_exercises[0],
+      target_reps_min: 4,
+      target_reps_max: 6,
+    };
+
+    expect(
+      buildFallbackReview(session, [highRepTemplate]).nextSessionSuggestion!.exercises[0]
+        .target.weightKg,
+    ).toBe(30);
+    expect(
+      buildFallbackReview(session, [lowRepTemplate]).nextSessionSuggestion!.exercises[0]
+        .target.weightKg,
+    ).toBe(52.5);
+  });
+
   it("uses a distinct suggestion name when repeating the completed workout", () => {
     const review = buildFallbackReview(session);
 

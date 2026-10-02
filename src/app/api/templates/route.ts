@@ -1,4 +1,4 @@
-import { jsonError } from "@/lib/api";
+import { isJsonObject, jsonError, readJsonBody } from "@/lib/api";
 import {
   AuthError,
   authErrorResponse,
@@ -22,10 +22,10 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const { supabase } = await requireAllowedUser();
-    const body = (await request.json()) as { id?: string };
+    const body = await readJsonBody(request);
     const parsed = templateUpdateSchema.safeParse(body);
 
-    if (!body.id || !parsed.success) {
+    if (!isJsonObject(body) || typeof body.id !== "string" || !body.id || !parsed.success) {
       return jsonError(400, "BAD_TEMPLATE", "Template payload is invalid.");
     }
 

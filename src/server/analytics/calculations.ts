@@ -334,12 +334,26 @@ function buildPersonalRecords(
   sessions: AnalyticsSession[],
   rows: CompletedSetRow[],
 ): DashboardAnalytics["personalRecords"] {
+  // Comparing loads across unrelated movements (leg press vs curls) is not
+  // meaningful, so headline load records use main lifts when any exist.
+  const mainLiftRows = rows.filter((row) => row.exercise.exercise.is_main_lift);
+  const loadRows = mainLiftRows.length > 0 ? mainLiftRows : rows;
+  const volumeBySession = new Map<string, number>();
+
+  for (const { session, exercise, set } of rows) {
+    volumeBySession.set(
+      session.id,
+      (volumeBySession.get(session.id) ?? 0) +
+        sessionSetVolume(set, exercise.exercise.volume_multiplier),
+    );
+  }
+
   return {
     heaviestCompletedSet: chooseRecord(
-      rows.map((row) => makeSetAchievement(row, row.set.weight_kg)),
+      loadRows.map((row) => makeSetAchievement(row, row.set.weight_kg)),
     ),
     highestEstimatedOneRepMax: chooseRecord(
-      rows
+      loadRows
         .map((row) =>
           makeSetAchievement(
             row,
@@ -350,21 +364,17 @@ function buildPersonalRecords(
     ),
     highestWorkoutVolume: chooseRecord(
       sessions.flatMap((session) => {
-        const sessionRows = rows.filter((row) => row.session.id === session.id);
-        return sessionRows.length > 0
-          ? [
+        const volume = volumeBySession.get(session.id);
+        return volume === undefined
+          ? []
+          : [
               {
-                value: sum(
-                  sessionRows.map(({ exercise, set }) =>
-                    sessionSetVolume(set, exercise.exercise.volume_multiplier),
-                  ),
-                ),
+                value: volume,
                 sessionId: session.id,
                 sessionName: session.name,
                 performedAt: session.performed_at,
               },
-            ]
-          : [];
+            ];
       }),
     ),
   };

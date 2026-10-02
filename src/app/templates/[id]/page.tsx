@@ -4,6 +4,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { TemplateEditor } from "@/components/templates/template-editor";
 import { TemplateReadOnly } from "@/components/templates/template-read-only";
 import { AppLink } from "@/components/ui/app-activity";
+import { isUuid } from "@/lib/api";
 import { getPageViewer } from "@/lib/auth/server";
 import { findTemplate, listExercises } from "@/server/db/queries";
 
@@ -15,6 +16,7 @@ export default async function TemplatePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  if (!isUuid(id)) notFound();
   const { supabase, ownerId, isOwner } = await getPageViewer();
 
   if (!ownerId) notFound();

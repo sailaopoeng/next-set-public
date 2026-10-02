@@ -1,3 +1,4 @@
+import { isUuid, notFoundResponse } from "@/lib/api";
 import { authErrorResponse, requireAllowedUser } from "@/lib/auth/server";
 import { cancelSession } from "@/server/db/queries";
 
@@ -11,6 +12,7 @@ export async function DELETE(
   try {
     const { id } = await context.params;
     const { supabase, user } = await requireAllowedUser();
+    if (!isUuid(id)) return notFoundResponse();
 
     await cancelSession(supabase, user.id, id);
 

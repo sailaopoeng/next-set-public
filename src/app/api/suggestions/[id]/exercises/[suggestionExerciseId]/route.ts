@@ -1,4 +1,4 @@
-import { jsonError } from "@/lib/api";
+import { isUuid, jsonError, notFoundResponse, readJsonBody } from "@/lib/api";
 import { authErrorResponse, requireAllowedUser } from "@/lib/auth/server";
 import { exerciseReplacementApplySchema } from "@/lib/validation/schemas";
 import { replaceSuggestionExercise } from "@/server/db/queries";
@@ -13,7 +13,8 @@ export async function PATCH(
   try {
     const { id, suggestionExerciseId } = await context.params;
     const { supabase, user } = await requireAllowedUser();
-    const parsed = exerciseReplacementApplySchema.safeParse(await request.json());
+    if (!isUuid(id) || !isUuid(suggestionExerciseId)) return notFoundResponse();
+    const parsed = exerciseReplacementApplySchema.safeParse(await readJsonBody(request));
 
     if (!parsed.success) {
       return jsonError(400, "BAD_REPLACEMENT", parsed.error.message);

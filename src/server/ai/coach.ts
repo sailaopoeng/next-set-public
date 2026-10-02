@@ -8,8 +8,12 @@ import {
   type CoachWorkoutPayload,
 } from "@/lib/validation/schemas";
 import { listCompletedSessionDetails, listExercises, listTemplates } from "@/server/db/queries";
-import { recommendProgression } from "@/server/progression/rules";
-import { GEMINI_BASE_URL, getGeminiCoachModel } from "@/server/ai/models";
+import {
+  buildExercisePerformanceHistory,
+  recommendProgression,
+  resolveWorkingWeight,
+} from "@/server/progression/rules";
+import { GEMINI_BASE_URL, GEMINI_TIMEOUT_MS, getGeminiCoachModel } from "@/server/ai/models";
 
 const MAX_CATALOG_EXERCISES = 200;
 
@@ -95,7 +99,7 @@ export function formatCompactHistory(sessions: SessionWithDetails[]) {
           );
         const target =
           `target ${exercise.planned_sets}x${exercise.target_reps_min}-${exercise.target_reps_max}` +
-          (exercise.target_weight_kg !== null
+          (exercise.target_weight_kg
             ? ` @ ${formatNumber(exercise.target_weight_kg)}kg`
             : "");
 
@@ -203,11 +207,17 @@ export function applyConservativeCoachSafety(
     sessionExercise: previous,
     sets: previous.session_sets,
     sessionNotes: previousSession?.notes,
+    previousPerformance: buildExercisePerformanceHistory(
+      history,
+      exercise.id,
+      previousSession?.performed_at,
+    ),
   }).suggestedTarget;
   const blockedByInstruction = instructionBlocksExercise(instruction, exercise);
-  const previousWeight =
-    previous.target_weight_kg ??
-    maxNumber(previous.session_sets.filter((set) => set.completed).map((set) => set.weight_kg));
+  const previousWeight = resolveWorkingWeight(
+    previous.target_weight_kg,
+    previous.session_sets.filter((set) => set.completed),
+  );
   const cap =
     blockedByInstruction && previousWeight !== null
       ? Math.min(safeTarget.weightKg ?? previousWeight, previousWeight)
@@ -289,6 +299,7 @@ async function requestCoachWorkout(model: string, apiKey: string, promptText: st
           responseMimeType: "application/json",
         },
       }),
+      signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
     },
   );
 
@@ -410,7 +421,11 @@ function buildFallbackCoachWorkout(
       sets: Array.from({ length: Math.max(1, Math.min(maxSets, entry.planned_sets)) }, (_, index) => ({
         setNumber: index + 1,
         reps: entry.target_reps_min,
-        weightKg: entry.target_weight_kg ?? 0,
+        weightKg:
+          resolveWorkingWeight(
+            entry.target_weight_kg,
+            entry.session_sets.filter((set) => set.completed),
+          ) ?? 0,
         restSeconds: entry.rest_seconds,
         notes: null,
       })),
@@ -497,10 +512,6 @@ function scoreExerciseNameMatch(wanted: string, candidate: string) {
 function combineNotes(...notes: Array<string | null>) {
   const unique = [...new Set(notes.filter((note): note is string => Boolean(note)))];
   return unique.length > 0 ? unique.join(" ").slice(0, 1000) : null;
-}
-
-function maxNumber(values: number[]) {
-  return values.length > 0 ? Math.max(...values) : null;
 }
 
 function formatNumber(value: number) {
